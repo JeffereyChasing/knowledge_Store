@@ -1,0 +1,407 @@
+/* components/QuestionForm.css */
+.question-form-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+    backdrop-filter: blur(2px);
+  }
+  
+  .question-form-dialog {
+    background: white;
+    border-radius: 12px;
+    max-width: 700px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px) scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  
+  .question-form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 24px 0;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 0;
+  }
+  
+  .question-form-header h3 {
+    margin: 0;
+    font-size: 1.5em;
+    color: #333;
+    font-weight: 600;
+  }
+  
+  .close-button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  }
+  
+  .close-button:hover:not(:disabled) {
+    background: #f5f5f5;
+    color: #333;
+  }
+  
+  .close-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .question-form {
+    padding: 24px;
+  }
+  
+  .form-group {
+    margin-bottom: 24px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    font-family: inherit;
+  }
+  
+  .form-group input:focus,
+  .form-group textarea:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  
+  .form-group input.error,
+  .form-group textarea.error,
+  .form-group select.error {
+    border-color: #f44336;
+  }
+  
+  .form-group textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+  }
+  
+  .error-message {
+    display: block;
+    color: #f44336;
+    font-size: 12px;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  
+  /* 标签输入样式 */
+  .tags-input-container {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .tags-input-container input {
+    flex: 1;
+  }
+  
+  .add-tag-button {
+    padding: 12px 16px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color 0.3s ease;
+  }
+  
+  .add-tag-button:hover:not(:disabled) {
+    background: #5a6fd8;
+  }
+  
+  .add-tag-button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+  
+  .tags-list {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 8px;
+  }
+  
+  .tags-header {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  
+  .tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    background: #667eea;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    gap: 6px;
+    animation: tagAppear 0.3s ease;
+  }
+  
+  @keyframes tagAppear {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .remove-tag-button {
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 14px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.3s ease;
+  }
+  
+  .remove-tag-button:hover {
+    background: rgba(255, 255, 255, 0.5);
+  }
+  
+  /* 加载状态 */
+  .loading-categories,
+  .no-categories {
+    padding: 12px;
+    text-align: center;
+    color: #666;
+    background: #f5f5f5;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  
+  .no-categories {
+    color: #f44336;
+    background: #ffebee;
+  }
+  
+  /* 提交错误 */
+  .submit-error {
+    background: #ffebee;
+    color: #f44336;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    border-left: 4px solid #f44336;
+  }
+  
+  /* 表单操作 */
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid #e0e0e0;
+  }
+  
+  .btn-primary,
+  .btn-secondary {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    min-width: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .btn-primary {
+    background: #667eea;
+    color: white;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background: #5a6fd8;
+    transform: translateY(-1px);
+  }
+  
+  .btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .btn-secondary {
+    background: #f5f5f5;
+    color: #666;
+  }
+  
+  .btn-secondary:hover:not(:disabled) {
+    background: #e0e0e0;
+  }
+  
+  .loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  /* 表单预览 */
+  .form-preview {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 20px;
+    border-left: 4px solid #667eea;
+  }
+  
+  .form-preview h4 {
+    margin: 0 0 12px 0;
+    color: #333;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  
+  .preview-content p {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #666;
+  }
+  
+  .preview-content strong {
+    color: #333;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .question-form-overlay {
+      padding: 10px;
+    }
+    
+    .question-form-dialog {
+      max-height: 95vh;
+      margin: 0;
+    }
+    
+    .question-form-header {
+      padding: 16px 16px 0;
+    }
+    
+    .question-form {
+      padding: 16px;
+    }
+    
+    .form-row {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    
+    .form-actions {
+      flex-direction: column-reverse;
+    }
+    
+    .btn-primary,
+    .btn-secondary {
+      width: 100%;
+    }
+    
+    .tags-input-container {
+      flex-direction: column;
+    }
+    
+    .add-tag-button {
+      width: 100%;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .question-form-header h3 {
+      font-size: 1.3em;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+  }

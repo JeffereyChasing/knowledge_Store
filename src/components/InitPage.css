@@ -1,0 +1,446 @@
+/* InitPage.css */
+.init-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  
+  .page-header {
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  
+  .page-header h1 {
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  .page-header p {
+    color: #666;
+    font-size: 16px;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+  }
+  
+  .btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 160px;
+  }
+  
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .btn-info {
+    background-color: #e3f2fd;
+    color: #1976d2;
+  }
+  
+  .btn-success {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+  }
+  
+  .btn-danger {
+    background-color: #ffebee;
+    color: #d32f2f;
+  }
+  
+  .btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    color: #666;
+  }
+  
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  .message {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    text-align: center;
+    font-weight: 500;
+  }
+  
+  .message.success {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+  }
+  
+  .message.error {
+    background-color: #ffebee;
+    color: #d32f2f;
+    border: 1px solid #ffcdd2;
+  }
+  
+  .status-info {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+  }
+  
+  .status-info h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+  }
+  
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+  }
+  
+  .status-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border-radius: 6px;
+  }
+  
+  .status-item .label {
+    font-weight: 500;
+    color: #666;
+  }
+  
+  .status-item .value {
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .value.has-data {
+    color: #2e7d32;
+  }
+  
+  .value.no-data {
+    color: #d32f2f;
+  }
+  
+  .instructions {
+    background-color: #f8f9fa;
+    padding: 25px;
+    border-radius: 8px;
+  }
+  
+  .instructions h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #333;
+  }
+  
+  .instruction-item {
+    margin-bottom: 25px;
+  }
+  
+  .instruction-item h4 {
+    margin-bottom: 10px;
+    color: #555;
+  }
+  
+  .instruction-item ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #666;
+  }
+  
+  .instruction-item li {
+    margin-bottom: 5px;
+  }
+  
+  .data-structure {
+    display: grid;
+    gap: 10px;
+  }
+  
+  .structure-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .structure-item strong {
+    color: #333;
+  }
+  
+  .structure-item span {
+    color: #666;
+    font-size: 14px;
+  }
+  
+  @media (max-width: 600px) {
+    .init-page {
+      padding: 15px;
+    }
+    
+    .action-buttons {
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .btn {
+      width: 100%;
+      max-width: 300px;
+    }
+    
+    .status-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Notion 同步区域 */
+.notion-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.notion-section h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+/* Notion 按钮样式 */
+.btn-notion {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 2px solid rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+}
+
+.btn-notion:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3) !important;
+  transform: translateY(-2px);
+}
+
+.btn-sync {
+  background: #4CAF50 !important;
+  border: 2px solid #45a049 !important;
+  color: white !important;
+}
+
+.btn-sync:hover:not(:disabled) {
+  background: #45a049 !important;
+  transform: translateY(-2px);
+}
+
+/* Notion 状态卡片 */
+.notion-status {
+  margin-top: 1.5rem;
+}
+
+.status-card {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.status-indicator {
+  font-size: 1.2rem;
+}
+
+.database-info p {
+  margin: 0.5rem 0;
+}
+
+.database-info a {
+  color: #a3d4ff;
+  text-decoration: none;
+}
+
+.database-info a:hover {
+  text-decoration: underline;
+}
+
+.error-info {
+  color: #ffb3b3;
+}
+
+.help-text {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-top: 0.5rem;
+}
+
+/* 同步结果样式 */
+.sync-result {
+  margin-top: 1.5rem;
+}
+
+.result-card {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+  border-radius: 8px;
+}
+
+.result-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.stat-value {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.synced-problems {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 1rem;
+}
+
+.synced-problems h5 {
+  margin: 0 0 0.5rem 0;
+}
+
+.synced-problems ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.synced-problems li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  margin: 0.25rem 0;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.problem-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.problem-category {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+/* 数据管理区域 */
+.data-management-section {
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.data-management-section h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: #333;
+}
+
+/* 消息样式增强 */
+.message.warning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  color: #856404;
+}
+
+/* 配置要求样式 */
+.config-requirements {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.config-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.config-item strong {
+  color: #495057;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .notion-section,
+  .data-management-section {
+    padding: 1rem;
+  }
+  
+  .result-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+}

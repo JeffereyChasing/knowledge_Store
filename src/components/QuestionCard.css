@@ -1,0 +1,421 @@
+.question-card {
+    max-width: 800px;
+    margin: 20px auto;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  
+  .question-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+  }
+  
+  /* 预览模式样式 */
+  .preview-mode .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+  
+  .preview-mode .question-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+  
+  .edit-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+  }
+  
+  .edit-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+  }
+  
+  .preview-mode .card-content {
+    padding: 24px;
+  }
+  
+  .info-section {
+    margin-bottom: 20px;
+  }
+  
+  .info-section label {
+    display: block;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+  }
+  
+  .proficiency-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  
+  .time-display {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .time-value {
+    color: #4a5568;
+    font-weight: 500;
+    font-size: 1rem;
+  }
+  
+  .time-ago {
+    color: #718096;
+    font-size: 0.8rem;
+    font-style: italic;
+  }
+  
+  .answer-content {
+    background: #f7fafc;
+    padding: 16px;
+    border-radius: 8px;
+    border-left: 4px solid #4299e1;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+  
+  .knowledge-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .knowledge-tag {
+    background: #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    color: #4a5568;
+  }
+  
+  /* 编辑模式样式 */
+  .edit-mode {
+    padding: 0;
+  }
+  
+  .question-form {
+    padding: 24px;
+  }
+  
+  .form-group {
+    margin-bottom: 24px;
+  }
+  
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+  }
+  
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: white;
+  }
+  
+  .form-group input:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+  }
+  
+  .form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+    font-family: inherit;
+  }
+  
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  
+  .proficiency-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .radio-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: normal;
+    margin-bottom: 0;
+  }
+  
+  .radio-label input {
+    display: none;
+  }
+  
+  .radio-custom {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    margin-right: 10px;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+  
+  .radio-label input:checked + .radio-custom {
+    border-color: currentColor;
+  }
+  
+  .radio-label input:checked + .radio-custom::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: currentColor;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  /* 日期时间选择器样式 */
+  .datetime-input-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .datetime-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+  }
+  
+  .datetime-input:focus {
+    outline: none;
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+  }
+  
+  .now-btn {
+    background: #edf2f7;
+    color: #4a5568;
+    border: 2px solid #e2e8f0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    font-size: 0.9rem;
+  }
+  
+  .now-btn:hover {
+    background: #e2e8f0;
+    border-color: #cbd5e0;
+  }
+  
+  .datetime-preview {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #f7fafc;
+    border-radius: 6px;
+    color: #4a5568;
+    font-size: 0.9rem;
+    border-left: 3px solid #48bb78;
+  }
+  
+  .knowledge-points-input {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  
+  .knowledge-points-input input {
+    flex: 1;
+  }
+  
+  .add-btn {
+    background: #48bb78;
+    color: white;
+    border: none;
+    padding: 0 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+  }
+  
+  .add-btn:hover {
+    background: #38a169;
+    transform: translateY(-1px);
+  }
+  
+  .knowledge-tags-editable {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .knowledge-tag.editable {
+    background: #bee3f8;
+    color: #2b6cb0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .remove-tag {
+    background: none;
+    border: none;
+    color: #e53e3e;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  
+  .remove-tag:hover {
+    background: #e53e3e;
+    color: white;
+  }
+  
+  .form-actions {
+    text-align: center;
+    margin-top: 32px;
+  }
+  
+  .submit-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 40px;
+    border-radius: 25px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .question-card {
+      margin: 10px;
+      border-radius: 12px;
+    }
+    
+    .form-row {
+      grid-template-columns: 1fr;
+      gap: 0;
+    }
+    
+    .preview-mode .card-header {
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+    }
+    
+    .knowledge-points-input {
+      flex-direction: column;
+    }
+    
+    .add-btn {
+      padding: 12px;
+    }
+    
+    .datetime-input-container {
+      flex-direction: column;
+    }
+    
+    .now-btn {
+      width: 100%;
+    }
+  }
+  
+  /* 动画效果 */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .question-card {
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  /* 自定义日期时间选择器样式 */
+  input[type="datetime-local"] {
+    position: relative;
+  }
+  
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    background: transparent;
+    bottom: 0;
+    color: transparent;
+    cursor: pointer;
+    height: auto;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: auto;
+  }
+  
+  input[type="datetime-local"]::before {
+    content: '📅 选择日期时间';
+    color: #a0aec0;
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  
+  input[type="datetime-local"]:valid::before {
+    display: none;
+  }

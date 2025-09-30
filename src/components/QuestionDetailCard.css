@@ -1,0 +1,1106 @@
+/* components/QuestionDetailCard.css */
+.question-detail-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+  
+  .question-detail-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+  }
+  
+  /* 头部样式 */
+  .question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    gap: 20px;
+  }
+  
+  .question-title-section {
+    flex: 1;
+  }
+  
+  .question-title {
+    margin: 0 0 12px 0;
+    font-size: 1.4em;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.4;
+  }
+  
+  .question-meta-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  
+  .difficulty-badge,
+  .proficiency-badge,
+  .time-badge {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+  }
+  
+  .difficulty-badge {
+    background-color: #faad14; /* 默认中等颜色 */
+  }
+  
+  .proficiency-badge {
+    background-color: #1890ff;
+    color: white;
+  }
+  
+  .time-badge {
+    background-color: #722ed1;
+    color: white;
+  }
+  
+  .question-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  
+  .btn-edit,
+  .btn-delete {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .btn-edit {
+    background-color: #1890ff;
+    color: white;
+  }
+  
+  .btn-edit:hover {
+    background-color: #40a9ff;
+    transform: translateY(-1px);
+  }
+  
+  .btn-delete {
+    background-color: #ff4d4f;
+    color: white;
+  }
+  
+  .btn-delete:hover {
+    background-color: #ff7875;
+    transform: translateY(-1px);
+  }
+  
+  /* 分类信息 */
+  .category-info {
+    margin-bottom: 20px;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+  }
+  
+  .category-label {
+    font-weight: 600;
+    color: #666;
+    margin-right: 8px;
+  }
+  
+  .category-name {
+    color: #1890ff;
+    font-weight: 500;
+  }
+  
+  /* 答案部分 */
+  .answer-section {
+    margin-bottom: 20px;
+  }
+  
+  .answer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  
+  .answer-header h4 {
+    margin: 0;
+    color: #333;
+    font-size: 1.1em;
+  }
+  
+  .toggle-answer-btn {
+    background: none;
+    border: 1px solid #d9d9d9;
+    color: #666;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+  }
+  
+  .toggle-answer-btn:hover {
+    border-color: #1890ff;
+    color: #1890ff;
+  }
+  
+  .answer-content {
+    transition: all 0.3s ease;
+  }
+  
+  .answer-content.collapsed {
+    max-height: 120px;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .answer-content.collapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, white);
+  }
+  
+  .answer-content.expanded {
+    max-height: none;
+  }
+  
+  .answer-text {
+    line-height: 1.6;
+    color: #666;
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+  
+  /* 标签部分 */
+  .tags-section {
+    margin-bottom: 20px;
+  }
+  
+  .tags-section h4 {
+    margin: 0 0 8px 0;
+    color: #333;
+    font-size: 1.1em;
+  }
+  
+  .tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .tag {
+    background-color: #f0f2f5;
+    color: #666;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  
+  /* 时间信息 */
+  .time-info {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    font-size: 12px;
+    color: #999;
+  }
+  
+  .create-time,
+  .update-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  /* 编辑容器 */
+  .question-edit-container {
+    margin-bottom: 20px;
+  }
+  
+  /* 响应式设计 */
+  @media (max-width: 768px) {
+    .question-detail-card {
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    
+    .question-header {
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .question-actions {
+      align-self: stretch;
+      justify-content: space-between;
+    }
+    
+    .btn-edit,
+    .btn-delete {
+      flex: 1;
+      justify-content: center;
+    }
+    
+    .time-info {
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .question-title {
+      font-size: 1.2em;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .question-meta-badges {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .difficulty-badge,
+    .proficiency-badge,
+    .time-badge {
+      width: fit-content;
+    }
+  }
+
+  /* QuestionDetailCard.css - 展开视图样式 */
+
+.question-detail-card.expanded-view {
+  padding: 0;
+}
+
+.question-detail-card.expanded-view .answer-content.expanded {
+  max-height: none;
+  padding: 0;
+}
+
+.expanded-actions {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-primary);
+}
+
+.expanded-actions .btn-edit.primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.expanded-actions .btn-delete.secondary {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.card-details {
+  padding: 0 1.5rem 1.5rem;
+}
+
+/* QuestionDetailCard.css 中添加以下样式 */
+
+/* 出现频率显示样式 */
+.appearance-level-display {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.appearance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.appearance-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.appearance-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #212529;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid #dee2e6;
+}
+
+.appearance-slider-container {
+  margin: 8px 0;
+}
+
+/* 只读滚动条样式 */
+.appearance-slider-readonly {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  outline: none;
+  -webkit-appearance: none;
+  cursor: default;
+  opacity: 0.8;
+}
+
+.appearance-slider-readonly::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #495057;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  cursor: default;
+}
+
+.appearance-slider-readonly::-webkit-slider-track {
+  height: 8px;
+  border-radius: 4px;
+  -webkit-appearance: none;
+}
+
+.appearance-slider-readonly::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #495057;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  cursor: default;
+}
+
+.appearance-slider-readonly::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+}
+
+.appearance-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.appearance-label-low,
+.appearance-label-high {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* 展开视图下的样式调整 */
+.question-detail-card.expanded-view .appearance-level-display {
+  margin: 0 0 20px 0;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .appearance-level-display {
+    padding: 12px;
+    margin: 12px 0;
+  }
+  
+  .appearance-slider-readonly::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+/* QuestionDetailCard.css 中添加 Markdown 样式 */
+
+/* Markdown 内容样式 */
+.markdown-content {
+  line-height: 1.6;
+  color: #333;
+}
+
+.markdown-enabled {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 标题样式 */
+.md-h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin: 1em 0 0.5em 0;
+  color: #2c3e50;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 0.3em;
+}
+
+.md-h2 {
+  font-size: 1.3em;
+  font-weight: 600;
+  margin: 1.2em 0 0.5em 0;
+  color: #34495e;
+}
+
+.md-h3 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 1em 0 0.5em 0;
+  color: #34495e;
+}
+
+/* 段落样式 */
+.md-paragraph {
+  margin: 0.8em 0;
+  line-height: 1.6;
+}
+
+/* 粗体样式 */
+.markdown-content strong {
+  font-weight: 700;
+  color: #2c3e50;
+  background: linear-gradient(transparent 60%, #fff9c4 60%);
+}
+
+/* 斜体样式 */
+.markdown-content em {
+  font-style: italic;
+  color: #7f8c8d;
+}
+
+/* 行内代码样式 */
+.inline-code {
+  background: #f1f3f4;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: #e74c3c;
+  border: 1px solid #e1e5e9;
+}
+
+/* 链接样式 */
+.md-link {
+  color: #3498db;
+  text-decoration: none;
+  border-bottom: 1px solid #3498db;
+  transition: all 0.2s ease;
+}
+
+.md-link:hover {
+  color: #2980b9;
+  border-bottom-color: #2980b9;
+  background-color: #f8f9fa;
+}
+
+/* 列表样式 */
+.md-list-item {
+  margin: 0.3em 0;
+  padding-left: 1.5em;
+  position: relative;
+  line-height: 1.5;
+}
+
+.md-list-item:before {
+  content: '';
+  position: absolute;
+  left: 0.5em;
+  top: 0.7em;
+  width: 4px;
+  height: 4px;
+  background: #3498db;
+  border-radius: 50%;
+}
+
+/* 引用块样式 */
+.md-blockquote {
+  border-left: 4px solid #3498db;
+  background: #f8f9fa;
+  margin: 1em 0;
+  padding: 1em 1.5em;
+  color: #7f8c8d;
+  font-style: italic;
+  border-radius: 0 4px 4px 0;
+}
+
+/* 代码块样式（保持原有样式） */
+.code-block {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.code-block code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: inherit;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .md-h1 {
+    font-size: 1.3em;
+  }
+  
+  .md-h2 {
+    font-size: 1.2em;
+  }
+  
+  .md-h3 {
+    font-size: 1.1em;
+  }
+  
+  .md-blockquote {
+    padding: 0.8em 1em;
+    margin: 0.8em 0;
+  }
+}
+
+/* QuestionDetailCard.css 中添加代码块样式 */
+
+/* Markdown 代码块样式 */
+.code-block {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 1.2em;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1.2em 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  line-height: 1.4;
+  border: 1px solid #3a3f4b;
+  position: relative;
+}
+
+.code-block::before {
+  content: attr(data-language);
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #3a3f4b;
+  color: #abb2bf;
+  padding: 0.3em 0.8em;
+  font-size: 0.8em;
+  border-bottom-left-radius: 6px;
+  border-top-right-radius: 6px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.code-block code {
+  background: none;
+  padding: 0;
+  border: none;
+  color: inherit;
+  display: block;
+  white-space: pre;
+}
+
+/* 特定语言的代码高亮提示 */
+.language-javascript { color: #f8c555; }
+.language-js { color: #f8c555; }
+.language-jsx { color: #61dafb; }
+.language-typescript { color: #3178c6; }
+.language-ts { color: #3178c6; }
+.language-html { color: #e44d26; }
+.language-css { color: #2965f1; }
+.language-python { color: #3572A5; }
+.language-py { color: #3572A5; }
+.language-java { color: #ed8b00; }
+.language-cpp { color: #f34b7d; }
+.language-c { color: #555555; }
+.language-rust { color: #dea584; }
+.language-go { color: #00add8; }
+.language-php { color: #4f5d95; }
+.language-ruby { color: #701516; }
+.language-swift { color: #ffac45; }
+.language-kotlin { color: #a97bff; }
+.language-sql { color: #e38c00; }
+.language-json { color: #cb4b16; }
+.language-yaml { color: #cb4b16; }
+.language-markdown { color: #083fa1; }
+.language-md { color: #083fa1; }
+.language-bash { color: #89e051; }
+.language-shell { color: #89e051; }
+
+/* 行内代码样式 */
+.inline-code {
+  background: #f1f3f4;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.85em;
+  color: #e74c3c;
+  border: 1px solid #e1e5e9;
+}
+
+/* 代码块中的语法高亮（基础版本） */
+.code-block .keyword { color: #c678dd; }
+.code-block .string { color: #98c379; }
+.code-block .comment { color: #5c6370; font-style: italic; }
+.code-block .function { color: #61afef; }
+.code-block .number { color: #d19a66; }
+.code-block .operator { color: #56b6c2; }
+.code-block .class-name { color: #e5c07b; }
+.code-block .tag { color: #e06c75; }
+.code-block .attribute { color: #d19a66; }
+
+/* 代码块滚动条 */
+.code-block::-webkit-scrollbar {
+  height: 8px;
+}
+
+.code-block::-webkit-scrollbar-track {
+  background: #1e2227;
+  border-radius: 0 0 4px 4px;
+}
+
+.code-block::-webkit-scrollbar-thumb {
+  background: #3a3f4b;
+  border-radius: 4px;
+}
+
+.code-block::-webkit-scrollbar-thumb:hover {
+  background: #4a4f5b;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .code-block {
+    padding: 1em;
+    font-size: 0.85em;
+    margin: 1em 0;
+  }
+  
+  .code-block::before {
+    font-size: 0.75em;
+    padding: 0.2em 0.6em;
+  }
+}
+
+/* 暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+  .inline-code {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #f7fafc;
+  }
+}
+
+/* QuestionDetailCard.css 中更新出现频率样式 */
+
+/* 出现频率显示样式 */
+.appearance-level-display {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.appearance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.appearance-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.appearance-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #212529;
+  background: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid #dee2e6;
+}
+
+.appearance-slider-container {
+  margin: 8px 0;
+}
+
+/* 可编辑的滚动条样式 */
+.appearance-slider-editable {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.appearance-slider-editable:hover {
+  height: 10px;
+}
+
+.appearance-slider-editable:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.appearance-slider-editable::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.appearance-slider-editable::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.appearance-slider-editable::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+}
+
+.appearance-slider-editable::-webkit-slider-track {
+  height: 8px;
+  border-radius: 4px;
+  -webkit-appearance: none;
+}
+
+.appearance-slider-editable::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #3b82f6;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  cursor: grab;
+  transition: all 0.2s ease;
+}
+
+.appearance-slider-editable::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.appearance-slider-editable::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+}
+
+.appearance-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.appearance-label-low,
+.appearance-label-high {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.appearance-hint {
+  font-size: 12px;
+  color: #6c757d;
+  text-align: center;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* 展开视图下的样式调整 */
+.question-detail-card.expanded-view .appearance-level-display {
+  margin: 0 0 20px 0;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .appearance-level-display {
+    padding: 12px;
+    margin: 12px 0;
+  }
+  
+  .appearance-slider-editable::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .appearance-hint {
+    font-size: 11px;
+  }
+}
+
+/* 暗色主题支持 */
+@media (prefers-color-scheme: dark) {
+  .appearance-level-display {
+    background: #2d3748;
+    border-color: #4a5568;
+  }
+  
+  .appearance-label {
+    color: #e2e8f0;
+  }
+  
+  .appearance-value {
+    background: #4a5568;
+    color: #f7fafc;
+    border-color: #718096;
+  }
+  
+  .appearance-label-low,
+  .appearance-label-high,
+  .appearance-hint {
+    color: #a0aec0;
+  }
+}
+
+/* QuestionDetailCard.css 新增样式 */
+
+/* 确认复习区域 */
+.review-confirm-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  text-align: center;
+  color: white;
+}
+
+.confirm-review-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.confirm-review-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.review-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* 确认复习对话框 */
+.review-confirm-modal {
+  max-width: 500px;
+}
+
+.review-days-selector {
+  margin: 20px 0;
+}
+
+.days-presets {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.days-preset-btn {
+  padding: 8px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 20px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.days-preset-btn.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.days-preset-btn:hover:not(.active) {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.custom-days-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.custom-days-input label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.days-input {
+  padding: 8px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  width: 80px;
+  text-align: center;
+}
+
+.review-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+
+.review-info p {
+  margin: 5px 0;
+}
+/* QuestionDetailCard.css 新增样式 */
+
+/* 确认复习区域 */
+.review-confirm-section {
+  margin: 20px 0;
+  padding: 15px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  text-align: center;
+  color: white;
+}
+
+.confirm-review-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.confirm-review-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+.review-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* 确认复习对话框 */
+.review-confirm-modal {
+  max-width: 500px;
+}
+
+.review-days-selector {
+  margin: 20px 0;
+}
+
+.days-presets {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.days-preset-btn {
+  padding: 8px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 20px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.days-preset-btn.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.days-preset-btn:hover:not(.active) {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.custom-days-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.custom-days-input label {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.days-input {
+  padding: 8px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  width: 80px;
+  text-align: center;
+}
+
+.review-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+
+.review-info p {
+  margin: 5px 0;
+}

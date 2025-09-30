@@ -1,0 +1,207 @@
+/* components/DataMigrationPanel.css */
+.data-migration-panel {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+  
+  .migration-status {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #007bff;
+  }
+  
+  .status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin: 15px 0;
+  }
+  
+  .status-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .status-item.warning {
+    border-left: 4px solid #ffc107;
+    background: #fffbf0;
+  }
+  
+  .migration-needed {
+    color: #856404;
+    background: #fff3cd;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ffeaa7;
+  }
+  
+  .migration-complete {
+    color: #155724;
+    background: #d4edda;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #c3e6cb;
+  }
+  
+  .admin-config {
+    background: #f0f8ff;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+    border: 1px solid #d1ecf1;
+  }
+  
+  .config-form {
+    display: grid;
+    gap: 15px;
+    margin-top: 15px;
+  }
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .form-group label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #495057;
+  }
+  
+  .form-group input {
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+  
+  .migration-actions {
+    display: flex;
+    gap: 15px;
+    margin: 20px 0;
+  }
+  
+  .migrate-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    flex: 1;
+  }
+  
+  .migrate-btn:hover:not(:disabled) {
+    background: #218838;
+  }
+  
+  .migrate-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+  }
+  
+  .refresh-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  
+  .refresh-btn:hover {
+    background: #5a6268;
+  }
+  
+  .migration-result {
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+  }
+  
+  .migration-result.success {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+  }
+  
+  .migration-result.error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+  }
+  
+  .admin-info {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 10px;
+  }
+  
+  .migration-instructions {
+    background: #e7f3ff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 30px;
+  }
+  
+  .important-notes {
+    background: #fff3cd;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 15px;
+    border: 1px solid #ffeaa7;
+  }
+  
+  .important-notes h4 {
+    color: #856404;
+    margin-top: 0;
+  }
+
+  /* 更新 DataMigrationPanel.css */
+.user-status-section {
+    background: #e7f3ff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #b3d9ff;
+  }
+  
+  .user-info {
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    margin-top: 10px;
+  }
+  
+  .user-info.not-logged-in {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+  }
+  
+  .admin-note {
+    color: #856404;
+    font-style: italic;
+    margin-top: 10px;
+    padding: 8px;
+    background: #fffbf0;
+    border-radius: 4px;
+  }
+  
+  .login-required {
+    color: #dc3545;
+    font-weight: bold;
+  }
+  
+  /* 其他样式保持不变 */
