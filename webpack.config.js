@@ -87,9 +87,9 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       // 注入环境变量到浏览器环境
-      'process.env.REACT_APP_LC_APP_ID': JSON.stringify(process.env.REACT_APP_LC_APP_ID || "JjTQ2R5rn16RRhUdrcjUSBxW-gzGzoHsz"),
-      'process.env.REACT_APP_LC_APP_KEY': JSON.stringify(process.env.REACT_APP_LC_APP_KEY || "UkvR0e4OPaeW5rYMQwNTvD7Z"),
-      'process.env.REACT_APP_LC_SERVER_URL': JSON.stringify(process.env.REACT_APP_LC_SERVER_URL || "https://jjtq2r5r.lc-cn-n1-shared.com")
+      'process.env.REACT_APP_LC_APP_ID': JSON.stringify(process.env.REACT_APP_LC_APP_ID ),
+      'process.env.REACT_APP_LC_APP_KEY': JSON.stringify(process.env.REACT_APP_LC_APP_KEY),
+      'process.env.REACT_APP_LC_SERVER_URL': JSON.stringify(process.env.REACT_APP_LC_SERVER_URL)
     }),
   ]
 };
