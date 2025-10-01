@@ -24,10 +24,12 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "webpack serve --config webpack.dev.js",
-    "build": "webpack --config webpack.prod.js",
+    "dev": "webpack serve --mode=development",
+    "build": "node scripts/validate-manifest.js && webpack --mode=production",
     "build:analyze": "npm run build -- --analyze",
-    "serve": "npx serve dist -s"
+    "build:staging": "webpack --mode=production --env staging",
+    "clean": "rimraf dist",
+    "validate": "node scripts/validate-manifest.js"
   },
   "eslintConfig": {
     "extends": [
@@ -54,8 +56,10 @@
     "@babel/preset-react": "^7.27.1",
     "babel-loader": "^10.0.0",
     "clean-webpack-plugin": "^4.0.0",
+    "copy-webpack-plugin": "^13.0.1",
     "css-loader": "^6.7.1",
     "css-minimizer-webpack-plugin": "^7.0.2",
+    "dotenv-webpack": "^8.1.1",
     "file-loader": "^6.2.0",
     "html-webpack-plugin": "^5.6.4",
     "style-loader": "^3.3.0",

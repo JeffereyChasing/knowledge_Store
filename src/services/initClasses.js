@@ -1,12 +1,21 @@
 // initClasses.js
 import AV from 'leancloud-storage';
 
+
+console.log('环境变量:', {
+  appId: process.env.REACT_APP_LC_APP_ID,
+  appKey: process.env.REACT_APP_LC_APP_KEY,
+  serverURL: process.env.REACT_APP_LC_SERVER_URL
+});
+
+
 // 初始化配置
 AV.init({
   appId: process.env.REACT_APP_LC_APP_ID,
   appKey: process.env.REACT_APP_LC_APP_KEY,
   serverURL: process.env.REACT_APP_LC_SERVER_URL
 });
+
 
 // 难度选项
 const DifficultyOptions = {
