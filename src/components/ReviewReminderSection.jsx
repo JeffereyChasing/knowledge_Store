@@ -10,7 +10,7 @@ const ReviewReminderSection = ({
   setReviewThreshold,
   showReviewSettings,
   setShowReviewSettings,
-  onQuestionClick,
+  onQuestionClick, // 添加这个prop
   onUpdateQuestionTime,
   questions
 }) => {
@@ -66,7 +66,7 @@ const ReviewReminderSection = ({
     }
   };
 
-  // 处理立即复习
+  // 处理立即复习 - 修改后的版本
   const handleReviewNow = async (questionId, e) => {
     e.stopPropagation(); // 阻止事件冒泡，避免触发卡片点击
     
@@ -79,13 +79,30 @@ const ReviewReminderSection = ({
     setUpdatingQuestions(prev => new Set(prev).add(questionId));
     
     try {
-      // 调用父组件的更新函数
+      // 1. 首先更新题目的复习时间
       await onUpdateQuestionTime(questionId);
       
-      // 从复习列表中移除该题目
+      // 2. 从复习列表中移除该题目
       setReviewQuestions(prev => prev.filter(q => q.id !== questionId));
       
       console.log('题目复习时间已更新，已从复习列表中移除');
+      
+      // 3. 找到题目信息并跳转到分类页面
+      const question = questions.find(q => q.id === questionId);
+      if (question && question.category) {
+        console.log('准备跳转到分类页面:', question.category.id);
+        
+        // 调用父组件传递的跳转函数
+        if (onQuestionClick) {
+          onQuestionClick(questionId);
+        } else {
+          // 备用跳转逻辑
+          handleQuestionClick(question);
+        }
+      } else {
+        console.warn('无法找到题目对应的分类信息');
+        alert('复习时间已更新，但无法跳转到题目位置');
+      }
       
     } catch (error) {
       console.error('更新复习时间失败:', error);
@@ -447,7 +464,7 @@ const ReviewReminderSection = ({
                           onClick={(e) => handleReviewNow(question.id, e)}
                           disabled={isUpdating}
                         >
-                          {isUpdating ? '🔄 更新中...' : '🔄 立即复习'}
+                          {isUpdating ? '🔄 更新中...' : '🔍 立即复习'}
                         </button>
                         <button 
                           className="postpone-btn"

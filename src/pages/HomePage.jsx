@@ -845,7 +845,7 @@ const HomePage = () => {
           </>
         )}
 
-        {/* 复习提醒标签页 */}
+        {/* 复习提醒标签页 - 现在为空，可以添加跳转到独立复习页面的内容 */}
         {activeTab === 'review' && (
           <ReviewReminderSection
             reviewQuestions={reviewQuestions}
@@ -854,7 +854,7 @@ const HomePage = () => {
             setReviewThreshold={setReviewThreshold}
             showReviewSettings={showReviewSettings}
             setShowReviewSettings={setShowReviewSettings}
-            onQuestionClick={handleQuestionClick}
+            onQuestionClick={handleQuestionClick} // 传递跳转函数
             onUpdateQuestionTime={handleUpdateQuestionTime}
             questions={questions}
           />

@@ -18,6 +18,11 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
   const [reviewDays, setReviewDays] = useState(7); // 默认7天
   const [confirmingReview, setConfirmingReview] = useState(false);
   
+  // 添加移除复习相关状态
+  const [showRemoveReview, setShowRemoveReview] = useState(false);
+  const [removeDays, setRemoveDays] = useState(7); // 默认7天
+  const [removingReview, setRemovingReview] = useState(false);
+  
   // 添加用户状态
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -338,6 +343,45 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
     }
   };
 
+  // 处理移除复习
+  const handleRemoveFromReview = async () => {
+    if (!currentUser) {
+      alert('请先登录');
+      return;
+    }
+
+    if (removingReview) return;
+
+    setRemovingReview(true);
+    try {
+      // 计算下次提醒时间
+      const nextReviewDate = new Date();
+      nextReviewDate.setDate(nextReviewDate.getDate() + removeDays);
+      
+      // 更新题目的下次复习时间
+      if (onUpdateField && question?.id) {
+        await onUpdateField(question.id, 'nextReviewDate', nextReviewDate.toISOString());
+        console.log(`题目将在 ${removeDays} 天后再次提醒复习`);
+        
+        // 显示成功消息
+        alert(`已暂停复习！该题目将在 ${removeDays} 天后再次出现在复习列表中`);
+        
+        // 关闭确认对话框
+        setShowRemoveReview(false);
+        
+        // 通知父组件更新
+        if (onUpdate) {
+          onUpdate();
+        }
+      }
+    } catch (error) {
+      console.error('移除复习失败:', error);
+      alert('操作失败，请重试');
+    } finally {
+      setRemovingReview(false);
+    }
+  };
+
   // 用户未登录时的显示
   if (!currentUser) {
     return (
@@ -382,7 +426,6 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
   return (
     <div className={`question-detail-card ${isExpandedView ? 'expanded-view' : ''}`}>
      
-
       {/* 头部信息 */}
       {!isExpandedView && (
         <div className="question-header">
@@ -409,6 +452,13 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
               disabled={deleteLoading}
             >
               {editLoading ? '编辑中...' : '✏️ 编辑'}
+            </button>
+            <button 
+              onClick={() => setShowRemoveReview(true)}
+              className="btn-remove-review"
+              title="暂时移除复习"
+            >
+              ⏸️ 暂停复习
             </button>
             <button 
               onClick={handleDelete}
@@ -640,6 +690,81 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
         </div>
       )}
 
+      {/* 移除复习对话框 */}
+      {showRemoveReview && (
+        <div className="modal-overlay">
+          <div className="modal-content remove-review-modal">
+            <div className="modal-header">
+              <h3>暂停复习提醒</h3>
+              <button 
+                className="close-btn"
+                onClick={() => setShowRemoveReview(false)}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="modal-body">
+              <p>选择在多少天内不再提醒复习这道题目：</p>
+              
+              <div className="remove-days-selector">
+                <div className="days-presets">
+                  {[1, 3, 7, 14, 30, 90].map(days => (
+                    <button
+                      key={days}
+                      className={`days-preset-btn ${removeDays === days ? 'active' : ''}`}
+                      onClick={() => setRemoveDays(days)}
+                    >
+                      {days}天
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="custom-days-input">
+                  <label htmlFor="customRemoveDays">自定义天数：</label>
+                  <input
+                    id="customRemoveDays"
+                    type="number"
+                    min="1"
+                    max="365"
+                    value={removeDays}
+                    onChange={(e) => setRemoveDays(parseInt(e.target.value) || 1)}
+                    className="days-input"
+                  />
+                </div>
+              </div>
+              
+              <div className="remove-review-info">
+                <p><strong>题目：</strong>{question?.title}</p>
+                <p><strong>下次提醒时间：</strong>
+                  {new Date(Date.now() + removeDays * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                </p>
+                <p className="info-text">
+                  💡 在此期间，该题目不会出现在复习列表中
+                </p>
+              </div>
+            </div>
+            
+            <div className="modal-actions">
+              <button
+                className="cancel-btn"
+                onClick={() => setShowRemoveReview(false)}
+                disabled={removingReview}
+              >
+                取消
+              </button>
+              <button
+                className="confirm-btn"
+                onClick={handleRemoveFromReview}
+                disabled={removingReview}
+              >
+                {removingReview ? '处理中...' : '确认暂停'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 详细信息 */}
       <div className="card-details">
         {!isExpandedView && (
@@ -681,6 +806,12 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
             disabled={deleteLoading}
           >
             ✏️ 编辑题目
+          </button>
+          <button 
+            onClick={() => setShowRemoveReview(true)}
+            className="btn-remove-review secondary"
+          >
+            ⏸️ 暂停复习
           </button>
           <button 
             onClick={handleDelete}

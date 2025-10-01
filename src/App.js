@@ -8,6 +8,8 @@ import TestPage from './pages/TestPage';
 import Navigation from './components/Navigation';
 import AuthModal from './components/AuthModal';
 import UserSettingsModal from './components/UserSettingsModal';
+import ReviewPage from './pages/ReviewPage';
+
 import './App.css';
 
 function App() {
@@ -58,7 +60,10 @@ function App() {
         <Route path="/init" element={<InitPage />} />
         <Route path="/category/:categoryId" element={<CategoryDetailPage />} />
         <Route path="/test" element={<TestPage />} />
+        <Route path="/review" element={<ReviewPage />} />
+
       </Routes>
+
 
       <AuthModal 
         isOpen={isAuthModalOpen}

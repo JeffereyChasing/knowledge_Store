@@ -464,34 +464,21 @@ export const getAllQuestions = async () => {
  */
 export const updateQuestion = async (questionId, updates) => {
   try {
-    const currentUser = AV.User.current();
-    if (!currentUser) {
-      throw new Error('用户未登录');
-    }
-
     const question = AV.Object.createWithoutData('Question', questionId);
     
-    // 验证题目是否属于当前用户
-    const query = new AV.Query('Question');
-    query.equalTo('objectId', questionId);
-    query.equalTo('createdBy', currentUser);
-    const originalQuestion = await query.first();
-    
-    if (!originalQuestion) {
-      throw new Error('题目不存在或无权修改');
-    }
-
+    // 支持所有字段的更新
     Object.keys(updates).forEach(key => {
-      question.set(key, updates[key]);
+      if (updates[key] !== undefined) {
+        question.set(key, updates[key]);
+      }
     });
-
+    
     await question.save();
-    return question;
+    return question.toJSON();
   } catch (error) {
     console.error('更新题目失败:', error);
     throw error;
   }
-};
-
+}
 // 导出辅助函数（如果需要）
 export { updateCategoryQuestionCount };
