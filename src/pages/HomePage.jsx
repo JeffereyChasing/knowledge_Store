@@ -1,14 +1,34 @@
 // HomePage.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { getCategories, initAV, QueryOptions, createCategory, deleteCategory } from '../services/categoryService';
-import { getAllQuestions, updateQuestion } from '../services/questionService';
-import AV from 'leancloud-storage';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import ReviewReminderSection from '../components/ReviewReminderSection';
-import CalendarTooltip from '../components/CalendarTooltip';
-import './HomePage.css';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  getCategories,
+  initAV,
+  QueryOptions,
+  createCategory,
+  deleteCategory,
+} from "../services/categoryService";
+import { getAllQuestions, updateQuestion } from "../services/questionService";
+import AV from "leancloud-storage";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import ReviewReminderSection from "../components/ReviewReminderSection";
+import CalendarTooltip from "../components/CalendarTooltip";
+import "./HomePage.css";
+import Documents from '../components/Documents';
+
 
 // 创建 React Query 客户端
 const queryClient = new QueryClient({
@@ -23,23 +43,23 @@ const queryClient = new QueryClient({
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [categories, setCategories] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState('');
-  const [activeTab, setActiveTab] = useState('categories');
+  const [syncMessage, setSyncMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("categories");
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [showAddCategory, setShowAddCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryDescription, setNewCategoryDescription] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [deletingCategory, setDeletingCategory] = useState(false);
-  
+
   // 复习提醒相关状态
   const [reviewThreshold, setReviewThreshold] = useState(7); // 默认7天
   const [reviewQuestions, setReviewQuestions] = useState([]);
@@ -58,7 +78,7 @@ const HomePage = () => {
   useEffect(() => {
     const user = AV.User.current();
     setCurrentUser(user);
-    
+
     if (user) {
       initializeData();
     } else {
@@ -69,14 +89,14 @@ const HomePage = () => {
   // 处理添加分类
   const handleAddCategory = async (e) => {
     e.preventDefault();
-    
+
     if (!currentUser) {
-      alert('请先登录');
+      alert("请先登录");
       return;
     }
-    
+
     if (!newCategoryName.trim()) {
-      alert('请输入分类名称');
+      alert("请输入分类名称");
       return;
     }
 
@@ -84,24 +104,23 @@ const HomePage = () => {
     try {
       const newCategory = await createCategory({
         name: newCategoryName.trim(),
-        description: newCategoryDescription.trim() || undefined
+        description: newCategoryDescription.trim() || undefined,
       });
-      
+
       // 添加新分类到列表
-      setCategories(prev => [newCategory, ...prev]);
-      
+      setCategories((prev) => [newCategory, ...prev]);
+
       // 重置表单
-      setNewCategoryName('');
-      setNewCategoryDescription('');
+      setNewCategoryName("");
+      setNewCategoryDescription("");
       setShowAddCategory(false);
-      
+
       // 显示成功消息
       setSyncMessage(`分类 "${newCategory.name}" 创建成功！`);
-      setTimeout(() => setSyncMessage(''), 3000);
-      
+      setTimeout(() => setSyncMessage(""), 3000);
     } catch (error) {
-      console.error('创建分类失败:', error);
-      setSyncMessage('创建分类失败: ' + (error.message || '请检查网络连接'));
+      console.error("创建分类失败:", error);
+      setSyncMessage("创建分类失败: " + (error.message || "请检查网络连接"));
     } finally {
       setAddingCategory(false);
     }
@@ -121,21 +140,22 @@ const HomePage = () => {
     setDeletingCategory(true);
     try {
       await deleteCategory(categoryToDelete.id);
-      
+
       // 从列表中移除分类
-      setCategories(prev => prev.filter(cat => cat.id !== categoryToDelete.id));
-      
+      setCategories((prev) =>
+        prev.filter((cat) => cat.id !== categoryToDelete.id)
+      );
+
       // 关闭确认对话框
       setShowDeleteConfirm(false);
       setCategoryToDelete(null);
-      
+
       // 显示成功消息
       setSyncMessage(`分类 "${categoryToDelete.name}" 删除成功！`);
-      setTimeout(() => setSyncMessage(''), 3000);
-      
+      setTimeout(() => setSyncMessage(""), 3000);
     } catch (error) {
-      console.error('删除分类失败:', error);
-      setSyncMessage('删除分类失败: ' + (error.message || '请检查网络连接'));
+      console.error("删除分类失败:", error);
+      setSyncMessage("删除分类失败: " + (error.message || "请检查网络连接"));
     } finally {
       setDeletingCategory(false);
     }
@@ -149,24 +169,23 @@ const HomePage = () => {
 
   const handleSyncFromNotion = async () => {
     if (!currentUser) {
-      alert('请先登录');
+      alert("请先登录");
       return;
     }
 
     setSyncing(true);
-    setSyncMessage('开始从Notion导入数据...');
-    
+    setSyncMessage("开始从Notion导入数据...");
+
     try {
-      const result = await AV.Cloud.run('syncProblemsFromNotion');
-      setSyncMessage(result.message || '同步成功！');
-      
+      const result = await AV.Cloud.run("syncProblemsFromNotion");
+      setSyncMessage(result.message || "同步成功！");
+
       setTimeout(() => {
         reloadData();
       }, 1000);
-      
     } catch (error) {
-      console.error('同步失败:', error);
-      setSyncMessage('同步失败: ' + (error.message || '请检查网络连接或配置'));
+      console.error("同步失败:", error);
+      setSyncMessage("同步失败: " + (error.message || "请检查网络连接或配置"));
     } finally {
       setSyncing(false);
     }
@@ -178,59 +197,84 @@ const HomePage = () => {
         page: 1,
         pageSize: 50,
         sortBy: QueryOptions.SORT_BY_UPDATED_AT,
-        sortOrder: 'desc'
+        sortOrder: "desc",
       });
       setCategories(categoriesData.data);
 
       const questionsData = await getAllQuestions();
       setQuestions(questionsData);
     } catch (err) {
-      console.error('重新加载数据失败:', err);
+      console.error("重新加载数据失败:", err);
     }
   };
 
-  // 更新题目复习时间
+  // 更新题目复习时间 - 修复版本
   const handleUpdateQuestionTime = async (questionId) => {
     try {
-      console.log('更新题目复习时间:', questionId);
-      
-      const currentTime = new Date().toISOString();
-      
-      // 更新到 LeanCloud
+      console.log("更新题目复习时间:", questionId);
+
+      const question = questions.find((q) => q.id === questionId);
+      if (!question) {
+        throw new Error("未找到对应的题目");
+      }
+
+      const currentTime = new Date();
+
+      // 只更新自定义字段，不要更新 reserved fields
       await updateQuestion(questionId, {
-        updatedAt: currentTime
+        lastReviewedAt: currentTime, // 只更新自定义的复习时间字段
       });
-      
+
+      console.log("LeanCloud 更新成功，开始更新本地状态");
+
       // 更新本地状态中的题目更新时间
-      setQuestions(prev => prev.map(q => 
-        q.id === questionId 
-          ? { ...q, updatedAt: currentTime }
-          : q
-      ));
-      
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.id === questionId
+            ? {
+                ...q,
+                // updatedAt 由 LeanCloud 自动更新，我们只更新 lastReviewedAt
+                lastReviewedAt: currentTime.toISOString(),
+              }
+            : q
+        )
+      );
+
       console.log(`题目 ${questionId} 复习时间已更新`);
       return true;
     } catch (error) {
-      console.error('更新题目时间失败:', error);
+      console.error("更新题目时间失败:", error);
+      console.error("错误详情:", {
+        questionId,
+        errorMessage: error.message,
+        errorStack: error.stack,
+      });
       throw error;
     }
   };
 
-  // 计算需要复习的题目
+  // 计算需要复习的题目 - 修复版本
   useEffect(() => {
     const calculateReviewQuestions = () => {
       const now = new Date();
       const thresholdMs = reviewThreshold * 24 * 60 * 60 * 1000; // 转换为毫秒
-      
-      const needReview = questions.filter(question => {
-        const lastReviewed = new Date(question.updatedAt || question.createdAt);
-        const timeDiff = now - lastReviewed;
-        return timeDiff >= thresholdMs;
-      }).sort((a, b) => {
-        // 按时间倒序排列，最久未复习的排在最前面
-        return new Date(a.updatedAt || a.createdAt) - new Date(b.updatedAt || b.createdAt);
-      });
-      
+
+      const needReview = questions
+        .filter((question) => {
+          // 使用 lastReviewedAt 字段，如果不存在则使用 createdAt
+          const lastReviewed = new Date(
+            question.lastReviewedAt || question.createdAt
+          );
+          const timeDiff = now - lastReviewed;
+          return timeDiff >= thresholdMs;
+        })
+        .sort((a, b) => {
+          // 按复习时间正序排列，最久未复习的排在最前面
+          const timeA = new Date(a.lastReviewedAt || a.createdAt);
+          const timeB = new Date(b.lastReviewedAt || b.createdAt);
+          return timeA - timeB;
+        });
+
       setReviewQuestions(needReview);
     };
 
@@ -246,14 +290,14 @@ const HomePage = () => {
         page: 1,
         pageSize: 50,
         sortBy: QueryOptions.SORT_BY_UPDATED_AT,
-        sortOrder: 'desc'
+        sortOrder: "desc",
       });
-      
+
       setCategories(categoriesData.data);
 
       const questionsData = await getAllQuestions();
       setQuestions(questionsData);
-      
+
       setLoading(false);
     } catch (err) {
       setError(err.message);
@@ -263,57 +307,67 @@ const HomePage = () => {
 
   // 获取某一天的题目详情
   const getDayQuestions = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    
-    const dayQuestions = questions.filter(question => {
+    const dateStr = date.toISOString().split("T")[0];
+
+    const dayQuestions = questions.filter((question) => {
       const questionDate = new Date(question.createdAt);
-      const questionDateStr = questionDate.toISOString().split('T')[0];
+      const questionDateStr = questionDate.toISOString().split("T")[0];
       return questionDateStr === dateStr;
     });
 
     // 按创建时间排序
-    return dayQuestions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return dayQuestions.sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
   };
 
   // 获取固定颜色
   const getDayColor = (count) => {
-    if (count === 0) return '#f8f9fa'; // 无题目 - 浅灰色
-    if (count <= 1) return '#4CAF50';   // 1题 - 深绿色
-    if (count <= 3) return '#8BC34A';   // 2-3题 - 浅绿色
-    if (count <= 5) return '#FFC107';   // 4-5题 - 黄色
-    if (count <= 8) return '#FF9800';   // 6-8题 - 橙色
-    return '#F44336';                   // 9题以上 - 红色
+    if (count === 0) return "#f8f9fa"; // 无题目 - 浅灰色
+    if (count <= 1) return "#4CAF50"; // 1题 - 深绿色
+    if (count <= 3) return "#8BC34A"; // 2-3题 - 浅绿色
+    if (count <= 5) return "#FFC107"; // 4-5题 - 黄色
+    if (count <= 8) return "#FF9800"; // 6-8题 - 橙色
+    return "#F44336"; // 9题以上 - 红色
   };
 
   // 生成月度日历数据
   const getMonthlyCalendarData = () => {
-    const monthStart = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
-    const monthEnd = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
-    
+    const monthStart = new Date(
+      selectedMonth.getFullYear(),
+      selectedMonth.getMonth(),
+      1
+    );
+    const monthEnd = new Date(
+      selectedMonth.getFullYear(),
+      selectedMonth.getMonth() + 1,
+      0
+    );
+
     const dateCounts = {};
-    questions.forEach(question => {
+    questions.forEach((question) => {
       const questionDate = new Date(question.createdAt);
       if (questionDate >= monthStart && questionDate <= monthEnd) {
-        const dateStr = questionDate.toISOString().split('T')[0];
+        const dateStr = questionDate.toISOString().split("T")[0];
         dateCounts[dateStr] = (dateCounts[dateStr] || 0) + 1;
       }
     });
 
     const calendarData = [];
     const currentDate = new Date(monthStart);
-    
+
     while (currentDate <= monthEnd) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = currentDate.toISOString().split("T")[0];
       const dayQuestions = getDayQuestions(currentDate);
       const questionCount = dayQuestions.length;
-      
+
       calendarData.push({
         date: new Date(currentDate),
         count: questionCount,
         day: currentDate.getDate(),
-        isToday: dateStr === new Date().toISOString().split('T')[0],
+        isToday: dateStr === new Date().toISOString().split("T")[0],
         questions: dayQuestions,
-        color: getDayColor(questionCount)
+        color: getDayColor(questionCount),
       });
       currentDate.setDate(currentDate.getDate() + 1);
     }
@@ -326,25 +380,24 @@ const HomePage = () => {
     setHoveredDay(dayData);
     setTooltipVisible(true);
 
-    
     // 计算相对于日历容器的位置
     if (calendarRef.current) {
       const calendarRect = calendarRef.current.getBoundingClientRect();
       const dayRect = event.currentTarget.getBoundingClientRect();
-      
+
       setTooltipPosition({
         x: dayRect.left + dayRect.width / 2 - calendarRect.left,
-        y: dayRect.top - calendarRect.top - 10
+        y: dayRect.top - calendarRect.top - 10,
       });
     }
-    
+
     setTooltipVisible(true);
   };
 
   const handleDayMouseLeave = () => {
     // 延迟隐藏，给用户时间移动到提示框
     setTimeout(() => {
-      if (!document.querySelector('.calendar-tooltip:hover')) {
+      if (!document.querySelector(".calendar-tooltip:hover")) {
         setTooltipVisible(false);
       }
     }, 100);
@@ -358,7 +411,7 @@ const HomePage = () => {
   // 月份导航
   const navigateMonth = (direction) => {
     const newDate = new Date(selectedMonth);
-    if (direction === 'prev') {
+    if (direction === "prev") {
       newDate.setMonth(newDate.getMonth() - 1);
     } else {
       newDate.setMonth(newDate.getMonth() + 1);
@@ -369,68 +422,80 @@ const HomePage = () => {
   // 获取月份统计
   const getMonthStats = () => {
     const monthData = getMonthlyCalendarData();
-    const daysWithQuestions = monthData.filter(day => day.count > 0).length;
+    const daysWithQuestions = monthData.filter((day) => day.count > 0).length;
     const totalQuestions = monthData.reduce((sum, day) => sum + day.count, 0);
-    const maxDaily = Math.max(...monthData.map(day => day.count));
-    
+    const maxDaily = Math.max(...monthData.map((day) => day.count));
+
     return { daysWithQuestions, totalQuestions, maxDaily };
   };
 
   const getCategoryChartData = () => {
     const categoryMap = {};
-    
-    questions.forEach(question => {
-      const categoryName = question.category?.name || '未分类';
+
+    questions.forEach((question) => {
+      const categoryName = question.category?.name || "未分类";
       categoryMap[categoryName] = (categoryMap[categoryName] || 0) + 1;
     });
 
-    return Object.entries(categoryMap).map(([name, count]) => ({
-      name: name.length > 8 ? name.substring(0, 8) + '...' : name,
-      fullName: name,
-      value: count,
-      percentage: ((count / questions.length) * 100).toFixed(1)
-    })).sort((a, b) => b.value - a.value);
+    return Object.entries(categoryMap)
+      .map(([name, count]) => ({
+        name: name.length > 8 ? name.substring(0, 8) + "..." : name,
+        fullName: name,
+        value: count,
+        percentage: ((count / questions.length) * 100).toFixed(1),
+      }))
+      .sort((a, b) => b.value - a.value);
   };
 
   const getDifficultyData = () => {
     const difficultyMap = {};
-    
-    questions.forEach(question => {
-      const difficulty = question.difficulty || 'unknown';
+
+    questions.forEach((question) => {
+      const difficulty = question.difficulty || "unknown";
       difficultyMap[difficulty] = (difficultyMap[difficulty] || 0) + 1;
     });
 
     return Object.entries(difficultyMap).map(([name, count]) => ({
       name: getDifficultyText(name),
       value: count,
-      color: getDifficultyColor(name)
+      color: getDifficultyColor(name),
     }));
   };
 
   const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
-      case 'easy': return '#52c41a';
-      case 'medium': return '#faad14';
-      case 'hard': return '#f5222d';
-      default: return '#666';
+      case "easy":
+        return "#52c41a";
+      case "medium":
+        return "#faad14";
+      case "hard":
+        return "#f5222d";
+      default:
+        return "#666";
     }
   };
 
   const getDifficultyText = (difficulty) => {
     switch (difficulty) {
-      case 'easy': return '简单';
-      case 'medium': return '中等';
-      case 'hard': return '困难';
-      default: return '未知';
+      case "easy":
+        return "简单";
+      case "medium":
+        return "中等";
+      case "hard":
+        return "困难";
+      default:
+        return "未知";
     }
   };
 
   const getActiveDays = () => {
-    const uniqueDays = new Set(questions.map(q => new Date(q.createdAt).toDateString()));
+    const uniqueDays = new Set(
+      questions.map((q) => new Date(q.createdAt).toDateString())
+    );
     return uniqueDays.size;
   };
 
-  const filteredCategories = categories.filter(category =>
+  const filteredCategories = categories.filter((category) =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -440,14 +505,14 @@ const HomePage = () => {
 
   const handleQuestionClick = (questionId) => {
     // 找到题目对应的分类并跳转
-    const question = questions.find(q => q.id === questionId);
+    const question = questions.find((q) => q.id === questionId);
     if (question && question.category) {
       navigate(`/category/${question.category.id}`);
     }
   };
 
   const formatTime = (date) => {
-    if (!date) return '暂无';
+    if (!date) return "暂无";
     const now = new Date();
     const diffMs = now - new Date(date);
     const diffMins = Math.floor(diffMs / 60000);
@@ -462,11 +527,22 @@ const HomePage = () => {
 
   const getProgressWidth = (count) => {
     if (!categories.length) return 0;
-    const maxCount = Math.max(...categories.map(c => c.questionCount || 0));
+    const maxCount = Math.max(...categories.map((c) => c.questionCount || 0));
     return maxCount > 0 ? (count / maxCount) * 100 : 0;
   };
 
-  const defaultColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43'];
+  const defaultColors = [
+    "#ff6b6b",
+    "#4ecdc4",
+    "#45b7d1",
+    "#96ceb4",
+    "#feca57",
+    "#ff9ff3",
+    "#54a0ff",
+    "#5f27cd",
+    "#00d2d3",
+    "#ff9f43",
+  ];
 
   // 用户未登录时的显示
   if (!currentUser) {
@@ -477,21 +553,25 @@ const HomePage = () => {
           <h2>请先登录</h2>
           <p>登录后即可查看和管理您的刷题数据</p>
           <div className="auth-required-actions">
-            <button 
+            <button
               onClick={() => {
-                window.dispatchEvent(new CustomEvent('showAuthModal', { 
-                  detail: { tab: 'login' } 
-                }));
+                window.dispatchEvent(
+                  new CustomEvent("showAuthModal", {
+                    detail: { tab: "login" },
+                  })
+                );
               }}
               className="login-btn primary"
             >
               🚀 立即登录
             </button>
-            <button 
+            <button
               onClick={() => {
-                window.dispatchEvent(new CustomEvent('showAuthModal', { 
-                  detail: { tab: 'register' } 
-                }));
+                window.dispatchEvent(
+                  new CustomEvent("showAuthModal", {
+                    detail: { tab: "register" },
+                  })
+                );
               }}
               className="login-btn secondary"
             >
@@ -541,7 +621,10 @@ const HomePage = () => {
         <div className="error-container">
           <h2>加载失败</h2>
           <p>{error}</p>
-          <button onClick={() => window.location.reload()} className="retry-btn">
+          <button
+            onClick={() => window.location.reload()}
+            className="retry-btn"
+          >
             重试
           </button>
         </div>
@@ -554,7 +637,10 @@ const HomePage = () => {
   const calendarData = getMonthlyCalendarData();
   const activeDays = getActiveDays();
   const monthStats = getMonthStats();
-  const monthName = selectedMonth.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' });
+  const monthName = selectedMonth.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "long",
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -563,9 +649,11 @@ const HomePage = () => {
           <div className="hero-content">
             <div className="user-welcome">
               <h1 className="hero-title">我的知识题库</h1>
-              <p className="hero-subtitle">欢迎回来, {currentUser.getUsername()}！按类别管理您的学习内容</p>
+              <p className="hero-subtitle">
+                欢迎回来, {currentUser.getUsername()}！按类别管理您的学习内容
+              </p>
             </div>
-            
+
             <div className="search-container">
               <div className="search-box">
                 <span className="search-icon">🔍</span>
@@ -580,15 +668,19 @@ const HomePage = () => {
             </div>
 
             <div className="sync-section">
-              <button 
-                onClick={handleSyncFromNotion} 
+              <button
+                onClick={handleSyncFromNotion}
                 disabled={syncing}
-                className={`sync-button ${syncing ? 'syncing' : ''}`}
+                className={`sync-button ${syncing ? "syncing" : ""}`}
               >
-                {syncing ? '🔄 同步中...' : '📥 从Notion导入题目'}
+                {syncing ? "🔄 同步中..." : "📥 从Notion导入题目"}
               </button>
               {syncMessage && (
-                <div className={`sync-message ${syncMessage.includes('失败') ? 'error' : 'success'}`}>
+                <div
+                  className={`sync-message ${
+                    syncMessage.includes("失败") ? "error" : "success"
+                  }`}
+                >
                   {syncMessage}
                 </div>
               )}
@@ -600,17 +692,23 @@ const HomePage = () => {
         <section className="modern-tabs-section">
           <div className="container">
             <div className="modern-tabs">
-              <button 
-                className={`modern-tab ${activeTab === 'categories' ? 'active' : ''}`}
-                onClick={() => setActiveTab('categories')}
+              <button
+                className={`modern-tab ${
+                  activeTab === "categories" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("categories")}
               >
                 <span className="tab-icon">📚</span>
                 <span className="tab-text">分类浏览</span>
-                {activeTab === 'categories' && <div className="tab-indicator"></div>}
+                {activeTab === "categories" && (
+                  <div className="tab-indicator"></div>
+                )}
               </button>
-              <button 
-                className={`modern-tab ${activeTab === 'review' ? 'active' : ''}`}
-                onClick={() => setActiveTab('review')}
+              <button
+                className={`modern-tab ${
+                  activeTab === "review" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("review")}
               >
                 <span className="tab-icon">🔄</span>
                 <span className="tab-text">
@@ -619,38 +717,63 @@ const HomePage = () => {
                     <span className="tab-badge">{reviewQuestions.length}</span>
                   )}
                 </span>
-                {activeTab === 'review' && <div className="tab-indicator"></div>}
+                {activeTab === "review" && (
+                  <div className="tab-indicator"></div>
+                )}
               </button>
-              <button 
-                className={`modern-tab ${activeTab === 'stats' ? 'active' : ''}`}
-                onClick={() => setActiveTab('stats')}
+              <button
+                className={`modern-tab ${
+                  activeTab === "stats" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("stats")}
               >
                 <span className="tab-icon">📊</span>
                 <span className="tab-text">数据统计</span>
-                {activeTab === 'stats' && <div className="tab-indicator"></div>}
+                {activeTab === "stats" && <div className="tab-indicator"></div>}
               </button>
-              <button 
-                className={`modern-tab ${activeTab === 'calendar' ? 'active' : ''}`}
-                onClick={() => setActiveTab('calendar')}
+              <button
+                className={`modern-tab ${
+                  activeTab === "calendar" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("calendar")}
               >
                 <span className="tab-icon">🗓️</span>
                 <span className="tab-text">学习日历</span>
-                {activeTab === 'calendar' && <div className="tab-indicator"></div>}
+                {activeTab === "calendar" && (
+                  <div className="tab-indicator"></div>
+                )}
+              </button>
+              {/* 新增的 Documents 按钮 */}
+              <button
+                className={`modern-tab ${
+                  activeTab === "documents" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("documents")}
+              >
+                <span className="tab-icon">📖</span>
+                <span className="tab-text">开发文档</span>
+                {activeTab === "documents" && (
+                  <div className="tab-indicator"></div>
+                )}
               </button>
             </div>
           </div>
         </section>
 
-        {activeTab === 'categories' && (
+        {activeTab === "categories" && (
           <>
             <section className="filters-section">
               <div className="container">
                 <div className="filters">
                   <div className="stats">
                     找到 {filteredCategories.length} 个类别
-                    {categories.length > 0 && ` • 总计 ${categories.reduce((sum, cat) => sum + (cat.questionCount || 0), 0)} 道题目`}
+                    {categories.length > 0 &&
+                      ` • 总计 ${categories.reduce(
+                        (sum, cat) => sum + (cat.questionCount || 0),
+                        0
+                      )} 道题目`}
                   </div>
-                  <button 
+                  <button
                     className="add-category-btn"
                     onClick={() => setShowAddCategory(true)}
                   >
@@ -667,14 +790,14 @@ const HomePage = () => {
                 <div className="modal-content">
                   <div className="modal-header">
                     <h3>创建新分类</h3>
-                    <button 
+                    <button
                       className="close-btn"
                       onClick={() => setShowAddCategory(false)}
                     >
                       ×
                     </button>
                   </div>
-                  
+
                   <form onSubmit={handleAddCategory} className="category-form">
                     <div className="form-group">
                       <label htmlFor="categoryName">分类名称 *</label>
@@ -688,19 +811,21 @@ const HomePage = () => {
                         autoFocus
                       />
                     </div>
-                    
+
                     <div className="form-group">
                       <label htmlFor="categoryDescription">分类描述</label>
                       <textarea
                         id="categoryDescription"
                         value={newCategoryDescription}
-                        onChange={(e) => setNewCategoryDescription(e.target.value)}
+                        onChange={(e) =>
+                          setNewCategoryDescription(e.target.value)
+                        }
                         placeholder="请输入分类描述（可选）"
                         rows="3"
                         maxLength={200}
                       />
                     </div>
-                    
+
                     <div className="form-actions">
                       <button
                         type="button"
@@ -714,7 +839,7 @@ const HomePage = () => {
                         className="submit-btn"
                         disabled={addingCategory || !newCategoryName.trim()}
                       >
-                        {addingCategory ? '创建中...' : '创建分类'}
+                        {addingCategory ? "创建中..." : "创建分类"}
                       </button>
                     </div>
                   </form>
@@ -728,26 +853,29 @@ const HomePage = () => {
                 <div className="modal-content delete-confirm-modal">
                   <div className="modal-header">
                     <h3>确认删除</h3>
-                    <button 
-                      className="close-btn"
-                      onClick={handleCancelDelete}
-                    >
+                    <button className="close-btn" onClick={handleCancelDelete}>
                       ×
                     </button>
                   </div>
-                  
+
                   <div className="delete-content">
                     <div className="delete-icon">🗑️</div>
                     <div className="delete-message">
-                      <p>确定要删除分类 <strong>"{categoryToDelete.name}"</strong> 吗？</p>
+                      <p>
+                        确定要删除分类{" "}
+                        <strong>"{categoryToDelete.name}"</strong> 吗？
+                      </p>
                       {categoryToDelete.questionCount > 0 && (
                         <p className="warning-text">
-                          ⚠️ 此分类包含 {categoryToDelete.questionCount} 道题目，删除后这些题目将变为未分类状态！
+                          ⚠️ 此分类包含 {categoryToDelete.questionCount}{" "}
+                          道题目，删除后这些题目将变为未分类状态！
                         </p>
                       )}
-                      <p className="delete-hint">此操作不可撤销，请谨慎操作。</p>
+                      <p className="delete-hint">
+                        此操作不可撤销，请谨慎操作。
+                      </p>
                     </div>
-                    
+
                     <div className="delete-actions">
                       <button
                         className="cancel-delete-btn"
@@ -761,7 +889,7 @@ const HomePage = () => {
                         onClick={handleConfirmDelete}
                         disabled={deletingCategory}
                       >
-                        {deletingCategory ? '删除中...' : '确认删除'}
+                        {deletingCategory ? "删除中..." : "确认删除"}
                       </button>
                     </div>
                   </div>
@@ -776,7 +904,7 @@ const HomePage = () => {
                     <div className="empty-icon">📚</div>
                     <h3>暂无类别数据</h3>
                     <p>没有找到匹配的类别，尝试调整搜索条件或创建新分类</p>
-                    <button 
+                    <button
                       className="create-first-category-btn"
                       onClick={() => setShowAddCategory(true)}
                     >
@@ -787,26 +915,33 @@ const HomePage = () => {
                   <div className="categories-grid">
                     {filteredCategories.map((category, index) => {
                       const color = defaultColors[index % defaultColors.length];
-                      
+
                       return (
                         <div
                           key={category.id}
                           className="category-card"
                           onClick={() => handleCategoryClick(category.id)}
-                          style={{ '--accent-color': color }}
+                          style={{ "--accent-color": color }}
                         >
                           <div className="card-header">
-                            <div className="category-icon" style={{ backgroundColor: color }}>
+                            <div
+                              className="category-icon"
+                              style={{ backgroundColor: color }}
+                            >
                               {category.name.charAt(0)}
                             </div>
                             <div className="category-info">
                               <h3 className="category-name">{category.name}</h3>
                               {category.description && (
-                                <p className="category-description">{category.description}</p>
+                                <p className="category-description">
+                                  {category.description}
+                                </p>
                               )}
-                              <span className="question-count">{category.questionCount || 0} 题</span>
+                              <span className="question-count">
+                                {category.questionCount || 0} 题
+                              </span>
                             </div>
-                            <button 
+                            <button
                               className="delete-category-btn"
                               onClick={(e) => handleDeleteClick(category, e)}
                               title="删除分类"
@@ -814,26 +949,28 @@ const HomePage = () => {
                               ×
                             </button>
                           </div>
-                          
+
                           <div className="card-footer">
                             <div className="progress-info">
                               <div className="progress-stats">
-                                <span>最近更新: {formatTime(category.updatedAt)}</span>
+                                <span>
+                                  最近更新: {formatTime(category.updatedAt)}
+                                </span>
                               </div>
                               <div className="progress-bar">
-                                <div 
-                                  className="progress-fill" 
-                                  style={{ 
-                                    width: `${getProgressWidth(category.questionCount)}%`,
-                                    backgroundColor: color
+                                <div
+                                  className="progress-fill"
+                                  style={{
+                                    width: `${getProgressWidth(
+                                      category.questionCount
+                                    )}%`,
+                                    backgroundColor: color,
                                   }}
                                 ></div>
                               </div>
                             </div>
-                            
-                            <button className="explore-btn">
-                              查看题目 →
-                            </button>
+
+                            <button className="explore-btn">查看题目 →</button>
                           </div>
                         </div>
                       );
@@ -845,8 +982,8 @@ const HomePage = () => {
           </>
         )}
 
-        {/* 复习提醒标签页 - 现在为空，可以添加跳转到独立复习页面的内容 */}
-        {activeTab === 'review' && (
+        {/* 复习提醒标签页 */}
+        {activeTab === "review" && (
           <ReviewReminderSection
             reviewQuestions={reviewQuestions}
             setReviewQuestions={setReviewQuestions}
@@ -860,7 +997,16 @@ const HomePage = () => {
           />
         )}
 
-        {activeTab === 'stats' && (
+        {activeTab === "documents" && (
+          <section className="documents-tab-section">
+            <div className="container">
+              <Documents />
+            </div>
+          </section>
+        )}
+
+
+        {activeTab === "stats" && (
           <section className="stats-section">
             <div className="container">
               <div className="stats-overview">
@@ -889,7 +1035,9 @@ const HomePage = () => {
                   <div className="stat-icon">⚡</div>
                   <div className="stat-content">
                     <div className="stat-number">
-                      {questions.length > 0 ? (questions.length / activeDays).toFixed(1) : 0}
+                      {questions.length > 0
+                        ? (questions.length / activeDays).toFixed(1)
+                        : 0}
                     </div>
                     <div className="stat-label">日均题目</div>
                   </div>
@@ -910,16 +1058,23 @@ const HomePage = () => {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percentage }) => `${name} ${percentage}%`}
+                          label={({ name, percentage }) =>
+                            `${name} ${percentage}%`
+                          }
                           outerRadius={100}
                           fill="#8884d8"
                           dataKey="value"
                         >
                           {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={defaultColors[index % defaultColors.length]} />
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={defaultColors[index % defaultColors.length]}
+                            />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value, name) => [`${value} 题`, name]} />
+                        <Tooltip
+                          formatter={(value, name) => [`${value} 题`, name]}
+                        />
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>
@@ -937,7 +1092,9 @@ const HomePage = () => {
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="name" />
                         <YAxis />
-                        <Tooltip formatter={(value) => [`${value} 题`, '数量']} />
+                        <Tooltip
+                          formatter={(value) => [`${value} 题`, "数量"]}
+                        />
                         <Bar dataKey="value" name="题目数量">
                           {difficultyData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -952,37 +1109,47 @@ const HomePage = () => {
           </section>
         )}
 
-        {activeTab === 'calendar' && (
+        {activeTab === "calendar" && (
           <section className="modern-calendar-section">
             <div className="container">
               <div className="calendar-header">
                 <h3>🗓️ 学习日历</h3>
                 <p>查看每月的学习活动分布</p>
               </div>
-              
+
               <div className="modern-calendar-card" ref={calendarRef}>
                 <div className="calendar-controls">
-                  <button onClick={() => navigateMonth('prev')} className="month-nav-btn">
+                  <button
+                    onClick={() => navigateMonth("prev")}
+                    className="month-nav-btn"
+                  >
                     ← 上个月
                   </button>
                   <h4 className="current-month">{monthName}</h4>
-                  <button onClick={() => navigateMonth('next')} className="month-nav-btn">
+                  <button
+                    onClick={() => navigateMonth("next")}
+                    className="month-nav-btn"
+                  >
                     下个月 →
                   </button>
                 </div>
 
                 <div className="monthly-calendar">
                   <div className="calendar-weekdays">
-                    {['日', '一', '二', '三', '四', '五', '六'].map(day => (
-                      <div key={day} className="weekday">{day}</div>
+                    {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
+                      <div key={day} className="weekday">
+                        {day}
+                      </div>
                     ))}
                   </div>
-                  
+
                   <div className="calendar-days">
                     {calendarData.map((dayData, index) => (
                       <div
                         key={index}
-                        className={`calendar-day ${dayData.count > 0 ? 'has-questions' : ''} ${dayData.isToday ? 'today' : ''}`}
+                        className={`calendar-day ${
+                          dayData.count > 0 ? "has-questions" : ""
+                        } ${dayData.isToday ? "today" : ""}`}
                         style={{ backgroundColor: dayData.color }}
                         onMouseEnter={(e) => handleDayMouseEnter(dayData, e)}
                         onMouseLeave={handleDayMouseLeave}
@@ -1009,11 +1176,15 @@ const HomePage = () => {
 
                 <div className="calendar-stats">
                   <div className="calendar-stat">
-                    <span className="stat-value">{monthStats.totalQuestions}</span>
+                    <span className="stat-value">
+                      {monthStats.totalQuestions}
+                    </span>
                     <span className="stat-label">本月题目</span>
                   </div>
                   <div className="calendar-stat">
-                    <span className="stat-value">{monthStats.daysWithQuestions}</span>
+                    <span className="stat-value">
+                      {monthStats.daysWithQuestions}
+                    </span>
                     <span className="stat-label">学习天数</span>
                   </div>
                   <div className="calendar-stat">
@@ -1024,27 +1195,45 @@ const HomePage = () => {
 
                 <div className="calendar-legend">
                   <div className="legend-item">
-                    <div className="legend-color" style={{ backgroundColor: '#f8f9fa' }}></div>
+                    <div
+                      className="legend-color"
+                      style={{ backgroundColor: "#f8f9fa" }}
+                    ></div>
                     <span>无题目</span>
                   </div>
                   <div className="legend-item">
-                    <div className="legend-color" style={{ backgroundColor: '#4CAF50' }}></div>
+                    <div
+                      className="legend-color"
+                      style={{ backgroundColor: "#4CAF50" }}
+                    ></div>
                     <span>1题</span>
                   </div>
                   <div className="legend-item">
-                    <div className="legend-color" style={{ backgroundColor: '#8BC34A' }}></div>
+                    <div
+                      className="legend-color"
+                      style={{ backgroundColor: "#8BC34A" }}
+                    ></div>
                     <span>2-3题</span>
                   </div>
                   <div className="legend-item">
-                    <div className="legend-color" style={{ backgroundColor: '#FFC107' }}></div>
+                    <div
+                      className="legend-color"
+                      style={{ backgroundColor: "#FFC107" }}
+                    ></div>
                     <span>4-5题</span>
                   </div>
                   <div className="legend-item">
-                    <div className="legend-color" style={{ backgroundColor: '#FF9800' }}></div>
+                    <div
+                      className="legend-color"
+                      style={{ backgroundColor: "#FF9800" }}
+                    ></div>
                     <span>6-8题</span>
                   </div>
                   <div className="legend-item">
-                    <div className="legend-color" style={{ backgroundColor: '#F44336' }}></div>
+                    <div
+                      className="legend-color"
+                      style={{ backgroundColor: "#F44336" }}
+                    ></div>
                     <span>9题以上</span>
                   </div>
                 </div>
@@ -1066,7 +1255,10 @@ const HomePage = () => {
               </div>
               <div className="stat-item">
                 <div className="stat-number">
-                  {categories.filter(cat => (cat.questionCount || 0) > 0).length}
+                  {
+                    categories.filter((cat) => (cat.questionCount || 0) > 0)
+                      .length
+                  }
                 </div>
                 <div className="stat-label">有题目的类别</div>
               </div>

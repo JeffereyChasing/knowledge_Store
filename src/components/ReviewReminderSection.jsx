@@ -36,9 +36,10 @@ const ReviewReminderSection = ({
     return `${diffMonths}月前`;
   };
 
-  // 获取紧急程度
+  // 获取紧急程度 - 修复版本
   const getUrgencyLevel = (question) => {
-    const lastReviewed = new Date(question.updatedAt || question.createdAt);
+    // 使用 lastReviewedAt 字段，如果不存在则使用 createdAt
+    const lastReviewed = new Date(question.lastReviewedAt || question.createdAt);
     const daysAgo = Math.floor((new Date() - lastReviewed) / (1000 * 60 * 60 * 24));
     
     if (daysAgo >= 30) return 'high';
@@ -66,7 +67,7 @@ const ReviewReminderSection = ({
     }
   };
 
-  // 处理立即复习 - 修改后的版本
+  // 处理立即复习 - 修复版本
   const handleReviewNow = async (questionId, e) => {
     e.stopPropagation(); // 阻止事件冒泡，避免触发卡片点击
     
@@ -75,22 +76,52 @@ const ReviewReminderSection = ({
       return;
     }
     
+    console.log('开始处理复习:', {
+      questionId,
+      hasOnUpdateQuestionTime: !!onUpdateQuestionTime,
+      currentQuestions: questions.length,
+      reviewQuestions: reviewQuestions.length
+    });
+
+    // 验证题目是否存在
+    const question = questions.find(q => q.id === questionId);
+    if (!question) {
+      console.error('未找到题目:', questionId);
+      alert('题目不存在，请刷新页面重试');
+      return;
+    }
+
+    console.log('找到题目:', {
+      id: question.id,
+      title: question.title,
+      lastReviewedAt: question.lastReviewedAt,
+      updatedAt: question.updatedAt,
+      category: question.category
+    });
+    
     // 添加到更新中的集合
     setUpdatingQuestions(prev => new Set(prev).add(questionId));
     
     try {
+      console.log('开始调用 onUpdateQuestionTime...');
+      
       // 1. 首先更新题目的复习时间
       await onUpdateQuestionTime(questionId);
       
-      // 2. 从复习列表中移除该题目
-      setReviewQuestions(prev => prev.filter(q => q.id !== questionId));
+      console.log('onUpdateQuestionTime 调用成功');
       
-      console.log('题目复习时间已更新，已从复习列表中移除');
+      // 2. 从复习列表中移除该题目
+      setReviewQuestions(prev => {
+        const newList = prev.filter(q => q.id !== questionId);
+        console.log('从复习列表移除后:', newList.length);
+        return newList;
+      });
+      
+      console.log('准备跳转到题目...');
       
       // 3. 找到题目信息并跳转到分类页面
-      const question = questions.find(q => q.id === questionId);
       if (question && question.category) {
-        console.log('准备跳转到分类页面:', question.category.id);
+        console.log('跳转到分类:', question.category.id);
         
         // 调用父组件传递的跳转函数
         if (onQuestionClick) {
@@ -106,7 +137,26 @@ const ReviewReminderSection = ({
       
     } catch (error) {
       console.error('更新复习时间失败:', error);
-      alert('更新失败，请重试');
+      console.error('错误详情:', {
+        questionId,
+        currentUser: currentUser?.id,
+        errorMessage: error.message
+      });
+      
+      // 更详细的错误处理
+      let errorMessage = '更新失败，请重试';
+      
+      if (error.message.includes('permission')) {
+        errorMessage = '更新失败：没有权限修改此题目';
+      } else if (error.message.includes('Object not found')) {
+        errorMessage = '更新失败：题目不存在或已被删除';
+      } else if (error.message.includes('未找到对应的题目')) {
+        errorMessage = '更新失败：本地数据中未找到该题目';
+      } else if (error.message.includes('reserved')) {
+        errorMessage = '更新失败：数据字段冲突，请刷新页面重试';
+      }
+      
+      alert(errorMessage);
     } finally {
       // 从更新中的集合移除
       setUpdatingQuestions(prev => {
@@ -406,7 +456,8 @@ const ReviewReminderSection = ({
               {filteredQuestions.map((question, index) => {
                 const urgency = getUrgencyLevel(question);
                 const urgencyColor = getUrgencyColor(urgency);
-                const lastReviewed = new Date(question.updatedAt || question.createdAt);
+                // 修复：使用 lastReviewedAt 字段
+                const lastReviewed = new Date(question.lastReviewedAt || question.createdAt);
                 const daysAgo = Math.floor((new Date() - lastReviewed) / (1000 * 60 * 60 * 24));
                 const isUpdating = updatingQuestions.has(question.id);
                 
@@ -429,7 +480,7 @@ const ReviewReminderSection = ({
                       </div>
                       <div className="time-info">
                         <span className="last-reviewed">
-                          上次复习: {formatTimeAgo(question.updatedAt || question.createdAt)}
+                          上次复习: {formatTimeAgo(question.lastReviewedAt || question.createdAt)}
                         </span>
                         <span className="days-ago">({daysAgo}天前)</span>
                       </div>

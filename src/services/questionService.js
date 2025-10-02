@@ -462,23 +462,28 @@ export const getAllQuestions = async () => {
 /**
  * 更新题目
  */
-export const updateQuestion = async (questionId, updates) => {
+// 在 questionService.js 中
+export const updateQuestion = async (questionId, updateData) => {
   try {
+    console.log('questionService: 更新题目', questionId, updateData);
+    
+    // 创建 LeanCloud 对象
     const question = AV.Object.createWithoutData('Question', questionId);
     
-    // 支持所有字段的更新
-    Object.keys(updates).forEach(key => {
-      if (updates[key] !== undefined) {
-        question.set(key, updates[key]);
-      }
+    // 设置更新字段
+    Object.keys(updateData).forEach(key => {
+      question.set(key, updateData[key]);
     });
     
-    await question.save();
-    return question.toJSON();
+    // 保存更新
+    const result = await question.save();
+    console.log('questionService: 更新成功', result);
+    
+    return result;
   } catch (error) {
-    console.error('更新题目失败:', error);
+    console.error('questionService: 更新题目失败:', error);
     throw error;
   }
-}
+};
 // 导出辅助函数（如果需要）
 export { updateCategoryQuestionCount };

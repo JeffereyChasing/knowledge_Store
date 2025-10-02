@@ -368,10 +368,10 @@ const CategoryDetailPage = () => {
             <div className="category-hero">
               <div className="category-badge">
                 <span className="category-emoji">📚</span>
-                <span className="category-name">{category.name}</span>
+                <span className="category-name">123{category.name}</span>
               </div>
               <div className="user-welcome">
-                <span className="welcome-text">欢迎, {currentUser.getUsername()}!</span>
+                <span className="welcome-text">欢迎回来!</span>
               </div>
               <div className="hero-stats">
                 <div className="stat-item">
@@ -458,14 +458,14 @@ const CategoryDetailPage = () => {
                 <div className="batch-actions">
                   <button 
                     onClick={expandAllQuestions}
-                    className="action-btn expand-btn"
+                    className="action-btn"
                     disabled={sortedQuestions.length === 0}
                   >
                     📖 展开全部
                   </button>
                   <button 
                     onClick={collapseAllQuestions}
-                    className="action-btn collapse-btn"
+                    className="action-btn"
                     disabled={expandedQuestions.size === 0}
                   >
                     📕 折叠全部
@@ -826,6 +826,7 @@ const QuestionAccordion = ({
             </span>
           </div>
           <h3 className="question-title">{question.title}</h3>
+          
           <div className="question-preview">
             {getAnswerPreview()}
           </div>
