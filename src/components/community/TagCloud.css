@@ -1,0 +1,245 @@
+/* components/community/styles/TagCloud.css */
+.tag-cloud-container {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.tag-cloud-header {
+  margin-bottom: 1rem;
+}
+
+.tag-cloud-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stats-text {
+  color: #e3f2fd;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.clear-filter-btn {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.clear-filter-btn:hover {
+  background: rgba(255, 107, 107, 0.3);
+  transform: translateY(-1px);
+}
+
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 6px 12px;
+  background: var(--tag-bg-color, rgba(255, 255, 255, 0.1));
+  color: var(--tag-color, #ffffff);
+  border: 2px solid var(--tag-border-color, rgba(255, 255, 255, 0.2));
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  backdrop-filter: blur(5px);
+  user-select: none;
+}
+
+.tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: var(--tag-color);
+}
+
+.tag.selected {
+  background: var(--tag-color);
+  color: white;
+  border-color: var(--tag-color);
+  box-shadow: 0 4px 15px color-mix(in srgb, var(--tag-color) 40%, transparent);
+  font-weight: 600;
+}
+
+/* 标签大小 */
+.tag.xs {
+  font-size: 0.75rem;
+  padding: 4px 10px;
+}
+
+.tag.sm {
+  font-size: 0.8rem;
+  padding: 5px 11px;
+}
+
+.tag.md {
+  font-size: 0.85rem;
+  padding: 6px 12px;
+}
+
+.tag.lg {
+  font-size: 0.9rem;
+  padding: 7px 14px;
+}
+
+.tag.xl {
+  font-size: 1rem;
+  padding: 8px 16px;
+  font-weight: 600;
+}
+
+.tag-text {
+  white-space: nowrap;
+}
+
+.tag-count {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+.tag.selected .tag-count {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* 选中的标签信息 */
+.selected-tag-info {
+  margin-bottom: 1rem;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selected-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.selected-tag-text {
+  font-size: 0.9rem;
+}
+
+.remove-selection {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+  border: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+}
+
+.remove-selection:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+/* 标签云底部说明 */
+.tag-cloud-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 1rem;
+}
+
+.tag-cloud-tips {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+}
+
+.tip-icon {
+  font-size: 0.9rem;
+}
+
+.tip-text {
+  font-style: italic;
+}
+
+/* 加载状态 */
+.tag-cloud-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #e3f2fd;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #4ecdc4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .tag-cloud-container {
+    padding: 1rem;
+  }
+  
+  .tag-cloud-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  
+  .tag-cloud {
+    gap: 0.6rem;
+  }
+  
+  .tag {
+    padding: 4px 10px;
+  }
+}

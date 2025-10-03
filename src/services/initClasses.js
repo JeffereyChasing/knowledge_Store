@@ -1,13 +1,11 @@
 // initClasses.js
 import AV from 'leancloud-storage';
 
-
 console.log('环境变量:', {
   appId: process.env.REACT_APP_LC_APP_ID,
   appKey: process.env.REACT_APP_LC_APP_KEY,
   serverURL: process.env.REACT_APP_LC_SERVER_URL
 });
-
 
 // 初始化配置
 AV.init({
@@ -15,7 +13,6 @@ AV.init({
   appKey: process.env.REACT_APP_LC_APP_KEY,
   serverURL: process.env.REACT_APP_LC_SERVER_URL
 });
-
 
 // 难度选项
 const DifficultyOptions = {
@@ -30,6 +27,31 @@ const ProficiencyOptions = {
   INTERMEDIATE: 'intermediate',
   ADVANCED: 'advanced',
   MASTER: 'master'
+};
+
+// 社区相关 Class 名称
+const CommunityClasses = {
+  POST: 'Post',
+  COMMENT: 'Comment',
+  LIKE: 'Like',
+  FOLLOW: 'Follow'
+};
+
+// 帖子状态选项
+const PostStatusOptions = {
+  PUBLISHED: 'published',
+  DRAFT: 'draft',
+  DELETED: 'deleted'
+};
+
+// 帖子排序选项
+const PostSortOptions = {
+  CREATED_AT: 'createdAt',
+  UPDATED_AT: 'updatedAt',
+  LAST_COMMENTED_AT: 'lastCommentedAt',
+  LIKES: 'likes',
+  VIEWS: 'views',
+  COMMENT_COUNT: 'commentCount'
 };
 
 // Notion 数据库字段映射配置
@@ -47,6 +69,524 @@ const NotionFieldMapping = {
   // 完成时间字段映射
   COMPLETION_TIME: ['CompletionTime', '完成时间', '时间']
 };
+
+// ==================== 社区功能相关函数 ====================
+
+/**
+ * 创建社区相关的数据表（Post, Comment, Like, Follow）
+ */
+export const createCommunityClasses = async () => {
+  try {
+    console.log('🚀 开始创建社区相关数据表...');
+    
+    const results = {
+      Post: await createPostClass(),
+      Comment: await createCommentClass(),
+      Like: await createLikeClass(),
+      Follow: await createFollowClass()
+    };
+    
+    console.log('✅ 社区数据表创建完成:', results);
+    return results;
+  } catch (error) {
+    console.error('❌ 创建社区数据表失败:', error);
+    throw new Error(`创建社区数据表失败: ${error.message}`);
+  }
+};
+
+/**
+ * 创建 Post 类（帖子表）
+ */
+const createPostClass = async () => {
+  try {
+    // 检查是否已存在
+    const query = new AV.Query(CommunityClasses.POST);
+    const existing = await query.first().catch(() => null);
+    if (existing) {
+      console.log('📝 Post 类已存在，跳过创建');
+      return { exists: true, message: 'Post class already exists' };
+    }
+
+    // 创建 Post 类（实际上在 LeanCloud 中类会自动创建，这里我们创建示例数据来验证）
+    const Post = AV.Object.extend(CommunityClasses.POST);
+    const testPost = new Post();
+    
+    // 设置字段
+    testPost.set('title', '测试帖子标题');
+    testPost.set('content', '这是一个测试帖子的内容，用于验证 Post 类的创建。');
+    testPost.set('author', AV.User.current());
+    testPost.set('tags', ['测试', '示例']);
+    testPost.set('likes', 0);
+    testPost.set('views', 0);
+    testPost.set('commentCount', 0);
+    testPost.set('isPublic', true);
+    testPost.set('isPinned', false);
+    testPost.set('status', PostStatusOptions.PUBLISHED);
+    
+    // 设置 ACL（权限控制）
+    const acl = new AV.ACL();
+    acl.setPublicReadAccess(true);    // 所有人可读
+    acl.setPublicWriteAccess(false);  // 只有作者可写
+    if (AV.User.current()) {
+      acl.setWriteAccess(AV.User.current(), true);
+    }
+    testPost.setACL(acl);
+    
+    await testPost.save();
+    console.log('✅ Post 类创建成功并添加测试数据');
+    
+    // 删除测试数据
+    await testPost.destroy();
+    console.log('🧹 已清理测试数据');
+    
+    return { 
+      success: true, 
+      message: 'Post class created successfully' 
+    };
+  } catch (error) {
+    console.error('创建 Post 类失败:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * 创建 Comment 类（评论表）
+ */
+const createCommentClass = async () => {
+  try {
+    // 检查是否已存在
+    const query = new AV.Query(CommunityClasses.COMMENT);
+    const existing = await query.first().catch(() => null);
+    if (existing) {
+      console.log('📝 Comment 类已存在，跳过创建');
+      return { exists: true, message: 'Comment class already exists' };
+    }
+
+    // 创建 Comment 类
+    const Comment = AV.Object.extend(CommunityClasses.COMMENT);
+    const testComment = new Comment();
+    
+    // 设置字段
+    testComment.set('content', '这是一个测试评论内容。');
+    testComment.set('author', AV.User.current());
+    testComment.set('likes', 0);
+    
+    // 设置 ACL
+    const acl = new AV.ACL();
+    acl.setPublicReadAccess(true);
+    acl.setPublicWriteAccess(false);
+    if (AV.User.current()) {
+      acl.setWriteAccess(AV.User.current(), true);
+    }
+    testComment.setACL(acl);
+    
+    await testComment.save();
+    console.log('✅ Comment 类创建成功并添加测试数据');
+    
+    // 删除测试数据
+    await testComment.destroy();
+    console.log('🧹 已清理测试数据');
+    
+    return { 
+      success: true, 
+      message: 'Comment class created successfully' 
+    };
+  } catch (error) {
+    console.error('创建 Comment 类失败:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * 创建 Like 类（点赞关系表）
+ */
+const createLikeClass = async () => {
+  try {
+    // 检查是否已存在
+    const query = new AV.Query(CommunityClasses.LIKE);
+    const existing = await query.first().catch(() => null);
+    if (existing) {
+      console.log('📝 Like 类已存在，跳过创建');
+      return { exists: true, message: 'Like class already exists' };
+    }
+
+    // 创建 Like 类
+    const Like = AV.Object.extend(CommunityClasses.LIKE);
+    const testLike = new Like();
+    
+    // 设置字段
+    testLike.set('user', AV.User.current());
+    
+    // 设置 ACL
+    const acl = new AV.ACL();
+    acl.setPublicReadAccess(true);
+    acl.setPublicWriteAccess(false);
+    if (AV.User.current()) {
+      acl.setWriteAccess(AV.User.current(), true);
+    }
+    testLike.setACL(acl);
+    
+    await testLike.save();
+    console.log('✅ Like 类创建成功并添加测试数据');
+    
+    // 删除测试数据
+    await testLike.destroy();
+    console.log('🧹 已清理测试数据');
+    
+    return { 
+      success: true, 
+      message: 'Like class created successfully' 
+    };
+  } catch (error) {
+    console.error('创建 Like 类失败:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * 创建 Follow 类（关注关系表）
+ */
+const createFollowClass = async () => {
+  try {
+    // 检查是否已存在
+    const query = new AV.Query(CommunityClasses.FOLLOW);
+    const existing = await query.first().catch(() => null);
+    if (existing) {
+      console.log('📝 Follow 类已存在，跳过创建');
+      return { exists: true, message: 'Follow class already exists' };
+    }
+
+    // 创建 Follow 类
+    const Follow = AV.Object.extend(CommunityClasses.FOLLOW);
+    const testFollow = new Follow();
+    
+    // 设置字段
+    testFollow.set('follower', AV.User.current());
+    
+    // 设置 ACL
+    const acl = new AV.ACL();
+    acl.setPublicReadAccess(true);
+    acl.setPublicWriteAccess(false);
+    if (AV.User.current()) {
+      acl.setWriteAccess(AV.User.current(), true);
+    }
+    testFollow.setACL(acl);
+    
+    await testFollow.save();
+    console.log('✅ Follow 类创建成功并添加测试数据');
+    
+    // 删除测试数据
+    await testFollow.destroy();
+    console.log('🧹 已清理测试数据');
+    
+    return { 
+      success: true, 
+      message: 'Follow class created successfully' 
+    };
+  } catch (error) {
+    console.error('创建 Follow 类失败:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * 生成社区示例数据
+ */
+export const generateCommunitySampleData = async () => {
+  try {
+    console.log('🚀 开始生成社区示例数据...');
+    
+    // 首先确保数据表已创建
+    await createCommunityClasses();
+    
+    const results = {
+      posts: await createSamplePosts(),
+      comments: await createSampleComments(),
+      likes: await createSampleLikes()
+    };
+    
+    console.log('✅ 社区示例数据生成完成:', results);
+    return {
+      success: true,
+      ...results,
+      message: `成功生成 ${results.posts.length} 个帖子, ${results.comments.length} 条评论, ${results.likes.length} 个点赞`
+    };
+  } catch (error) {
+    console.error('❌ 生成社区示例数据失败:', error);
+    throw new Error(`生成社区示例数据失败: ${error.message}`);
+  }
+};
+
+/**
+ * 创建示例帖子
+ */
+const createSamplePosts = async () => {
+  const currentUser = AV.User.current();
+  if (!currentUser) {
+    console.log('⚠️ 用户未登录，跳过创建示例帖子');
+    return [];
+  }
+
+  const Post = AV.Object.extend(CommunityClasses.POST);
+  const samplePosts = [
+    {
+      title: '欢迎来到学习社区！',
+      content: `大家好！欢迎来到我们的学习社区。这里是一个分享编程学习心得、交流刷题经验的地方。
+
+## 社区规则：
+1. 友善交流，互相帮助
+2. 分享有价值的内容
+3. 尊重他人观点
+4. 保持内容相关性
+
+希望大家都能在这里有所收获！🎉`,
+      tags: ['欢迎', '公告', '社区'],
+      isPublic: true,
+      isPinned: true
+    },
+    {
+      title: 'JavaScript 闭包的理解与实践',
+      content: `今天来分享一下我对 JavaScript 闭包的理解...
+
+## 什么是闭包？
+闭包是指那些能够访问自由变量的函数。
+
+## 实际应用场景：
+1. 模块化开发
+2. 私有变量
+3. 函数柯里化
+
+大家有什么补充的吗？`,
+      tags: ['JavaScript', '闭包', '前端'],
+      isPublic: true,
+      isPinned: false
+    },
+    {
+      title: 'React Hooks 使用心得',
+      content: `使用 React Hooks 有一段时间了，分享一些实践经验：
+
+- useState: 状态管理
+- useEffect: 副作用处理
+- useContext: 上下文传递
+- useMemo: 性能优化
+
+你们觉得哪个 Hook 最实用？`,
+      tags: ['React', 'Hooks', '前端'],
+      isPublic: true,
+      isPinned: false
+    }
+  ];
+
+  const posts = [];
+  for (const data of samplePosts) {
+    const post = new Post();
+    post.set('title', data.title);
+    post.set('content', data.content);
+    post.set('author', currentUser);
+    post.set('tags', data.tags);
+    post.set('likes', Math.floor(Math.random() * 10));
+    post.set('views', Math.floor(Math.random() * 50));
+    post.set('commentCount', Math.floor(Math.random() * 5));
+    post.set('isPublic', data.isPublic);
+    post.set('isPinned', data.isPinned);
+    post.set('status', PostStatusOptions.PUBLISHED);
+    
+    const acl = new AV.ACL();
+    acl.setPublicReadAccess(true);
+    acl.setPublicWriteAccess(false);
+    acl.setWriteAccess(currentUser, true);
+    post.setACL(acl);
+    
+    const saved = await post.save();
+    posts.push(saved);
+    console.log(`✅ 创建帖子: "${data.title}"`);
+  }
+  
+  return posts;
+};
+
+/**
+ * 创建示例评论
+ */
+const createSampleComments = async () => {
+  const currentUser = AV.User.current();
+  if (!currentUser) {
+    console.log('⚠️ 用户未登录，跳过创建示例评论');
+    return [];
+  }
+
+  // 获取刚创建的帖子
+  const postQuery = new AV.Query(CommunityClasses.POST);
+  const posts = await postQuery.find();
+  
+  if (posts.length === 0) {
+    console.log('⚠️ 没有找到帖子，跳过创建评论');
+    return [];
+  }
+
+  const Comment = AV.Object.extend(CommunityClasses.COMMENT);
+  const sampleComments = [
+    { content: '欢迎欢迎！期待更多精彩内容！🎊' },
+    { content: '闭包的讲解很清晰，感谢分享！' },
+    { content: '我觉得 useEffect 最实用，能处理各种副作用。' },
+    { content: '新人报道，请多指教！' },
+    { content: 'Hooks 确实让 React 开发更简洁了。' }
+  ];
+
+  const comments = [];
+  for (let i = 0; i < sampleComments.length; i++) {
+    const comment = new Comment();
+    comment.set('content', sampleComments[i].content);
+    comment.set('author', currentUser);
+    comment.set('post', posts[i % posts.length]); // 轮流分配到不同帖子
+    comment.set('likes', Math.floor(Math.random() * 5));
+    
+    const acl = new AV.ACL();
+    acl.setPublicReadAccess(true);
+    acl.setPublicWriteAccess(false);
+    acl.setWriteAccess(currentUser, true);
+    comment.setACL(acl);
+    
+    const saved = await comment.save();
+    comments.push(saved);
+    console.log(`✅ 创建评论: "${sampleComments[i].content.substring(0, 20)}..."`);
+  }
+  
+  return comments;
+};
+
+/**
+ * 创建示例点赞
+ */
+const createSampleLikes = async () => {
+  const currentUser = AV.User.current();
+  if (!currentUser) {
+    console.log('⚠️ 用户未登录，跳过创建示例点赞');
+    return [];
+  }
+
+  // 获取刚创建的帖子和评论
+  const postQuery = new AV.Query(CommunityClasses.POST);
+  const posts = await postQuery.find();
+  
+  const commentQuery = new AV.Query(CommunityClasses.COMMENT);
+  const comments = await commentQuery.find();
+
+  const Like = AV.Object.extend(CommunityClasses.LIKE);
+  const likes = [];
+
+  // 为第一个帖子点赞
+  if (posts.length > 0) {
+    const like = new Like();
+    like.set('user', currentUser);
+    like.set('post', posts[0]);
+    
+    const acl = new AV.ACL();
+    acl.setPublicReadAccess(true);
+    acl.setWriteAccess(currentUser, true);
+    like.setACL(acl);
+    
+    const saved = await like.save();
+    likes.push(saved);
+    console.log('✅ 创建帖子点赞');
+  }
+
+  // 为第一个评论点赞
+  if (comments.length > 0) {
+    const like = new Like();
+    like.set('user', currentUser);
+    like.set('comment', comments[0]);
+    
+    const acl = new AV.ACL();
+    acl.setPublicReadAccess(true);
+    acl.setWriteAccess(currentUser, true);
+    like.setACL(acl);
+    
+    const saved = await like.save();
+    likes.push(saved);
+    console.log('✅ 创建评论点赞');
+  }
+  
+  return likes;
+};
+
+/**
+ * 清除社区数据
+ */
+export const clearCommunityData = async () => {
+  try {
+    console.log('开始清除社区数据...');
+    
+    let deletedCount = {
+      posts: 0,
+      comments: 0,
+      likes: 0,
+      follows: 0
+    };
+    
+    // 清除点赞数据
+    try {
+      const likeQuery = new AV.Query(CommunityClasses.LIKE);
+      const likes = await likeQuery.find();
+      if (likes.length > 0) {
+        await AV.Object.destroyAll(likes);
+        deletedCount.likes = likes.length;
+      }
+    } catch (error) {
+      console.log('没有点赞数据需要删除:', error.message);
+    }
+    
+    // 清除评论数据
+    try {
+      const commentQuery = new AV.Query(CommunityClasses.COMMENT);
+      const comments = await commentQuery.find();
+      if (comments.length > 0) {
+        await AV.Object.destroyAll(comments);
+        deletedCount.comments = comments.length;
+      }
+    } catch (error) {
+      console.log('没有评论数据需要删除:', error.message);
+    }
+    
+    // 清除帖子数据
+    try {
+      const postQuery = new AV.Query(CommunityClasses.POST);
+      const posts = await postQuery.find();
+      if (posts.length > 0) {
+        await AV.Object.destroyAll(posts);
+        deletedCount.posts = posts.length;
+      }
+    } catch (error) {
+      console.log('没有帖子数据需要删除:', error.message);
+    }
+    
+    // 清除关注数据
+    try {
+      const followQuery = new AV.Query(CommunityClasses.FOLLOW);
+      const follows = await followQuery.find();
+      if (follows.length > 0) {
+        await AV.Object.destroyAll(follows);
+        deletedCount.follows = follows.length;
+      }
+    } catch (error) {
+      console.log('没有关注数据需要删除:', error.message);
+    }
+    
+    const message = `社区数据清除完成: ${deletedCount.posts} 帖子, ${deletedCount.comments} 评论, ${deletedCount.likes} 点赞, ${deletedCount.follows} 关注`;
+    console.log('✅ ' + message);
+    
+    return {
+      success: true,
+      ...deletedCount,
+      message
+    };
+  } catch (error) {
+    console.error('❌ 清除社区数据失败:', error);
+    throw new Error(`清除社区数据失败: ${error.message}`);
+  }
+};
+
+// ==================== 原有函数（保持不变） ====================
 
 /**
  * Notion 同步云函数
@@ -352,8 +892,6 @@ export const checkNotionConnection = async () => {
   }
 };
 
-// 以下是你原有的函数（保持不变）
-
 /**
  * 生成正确格式的 Category 和 Question Class（包含示例数据）
  */
@@ -558,11 +1096,19 @@ export const checkDataStatus = async () => {
   }
 };
 
-// 导出常量
-export { DifficultyOptions, ProficiencyOptions, NotionFieldMapping };
+// 导出所有常量和函数
+export { 
+  DifficultyOptions, 
+  ProficiencyOptions, 
+  NotionFieldMapping,
+  CommunityClasses,
+  PostStatusOptions,
+  PostSortOptions
+};
 
 // 全局可用
 if (typeof window !== 'undefined') {
+  // 原有函数
   window.generateSampleData = generateSampleData;
   window.clearAllData = clearAllData;
   window.checkDataStatus = checkDataStatus;
@@ -570,22 +1116,32 @@ if (typeof window !== 'undefined') {
   window.checkNotionConnection = checkNotionConnection;
   window.defineNotionCloudFunctions = defineNotionCloudFunctions;
   
+  // 新增社区函数
+  window.createCommunityClasses = createCommunityClasses;
+  window.generateCommunitySampleData = generateCommunitySampleData;
+  window.clearCommunityData = clearCommunityData;
+  
   console.log(`
 🎯 数据库管理工具已加载！
-新增 Notion 同步功能：
 
 📚 数据管理:
-1. generateSampleData()    - 生成示例数据
-2. clearAllData()          - 清除所有数据
-3. checkDataStatus()       - 检查数据状态
+1. generateSampleData()          - 生成示例数据
+2. clearAllData()                - 清除所有数据
+3. checkDataStatus()             - 检查数据状态
 
 🔄 Notion 同步:
-4. syncProblemsFromNotion() - 从 Notion 导入题目
-5. checkNotionConnection()  - 检查 Notion 连接状态
-6. defineNotionCloudFunctions() - 定义云函数（用于云引擎）
+4. syncProblemsFromNotion()      - 从 Notion 导入题目
+5. checkNotionConnection()       - 检查 Notion 连接状态
+6. defineNotionCloudFunctions()  - 定义云函数（用于云引擎）
+
+👥 社区功能:
+7. createCommunityClasses()      - 创建社区数据表
+8. generateCommunitySampleData() - 生成社区示例数据
+9. clearCommunityData()          - 清除社区数据
 
 💡 使用提示:
 - 首次使用请运行 generateSampleData() 创建示例数据
+- 使用社区功能前运行 createCommunityClasses() 创建数据表
 - 配置 Notion 环境变量后使用 syncProblemsFromNotion() 同步
 - 云函数需要在 LeanCloud 云引擎部署
   `);

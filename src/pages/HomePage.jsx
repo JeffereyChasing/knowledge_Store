@@ -27,7 +27,8 @@ import {
 import ReviewReminderSection from "../components/ReviewReminderSection";
 import CalendarTooltip from "../components/CalendarTooltip";
 import "./HomePage.css";
-import Documents from '../components/Documents';
+import Documents from "../components/Documents";
+import CommunityPage from "../components/community/CommunityPage";
 
 
 // 创建 React Query 客户端
@@ -654,6 +655,7 @@ const HomePage = () => {
               </p>
             </div>
 
+           
             <div className="search-container">
               <div className="search-box">
                 <span className="search-icon">🔍</span>
@@ -756,6 +758,21 @@ const HomePage = () => {
                   <div className="tab-indicator"></div>
                 )}
               </button>
+
+              <button
+                className={`modern-tab ${
+                  activeTab === "community" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("community")}
+              >
+                <span className="tab-icon">👥</span>
+                <span className="tab-text">学习社区</span>
+                {activeTab === "community" && (
+                  <div className="tab-indicator"></div>
+                )}
+              </button>
+
+
             </div>
           </div>
         </section>
@@ -1005,6 +1022,7 @@ const HomePage = () => {
           </section>
         )}
 
+        {activeTab === "community" && <CommunityPage />}
 
         {activeTab === "stats" && (
           <section className="stats-section">

@@ -2920,3 +2920,26 @@
     padding: 1px 4px;
   }
 }
+
+/* 在 HomePage.css 中添加 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 调整原有样式适应新布局 */
+.hero-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.user-welcome {
+  flex: 1;
+}
+
+.search-container {
+  display: none; /* 隐藏原有的搜索框 */
+}
