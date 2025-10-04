@@ -28,18 +28,19 @@ function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState('login');
   const [isUserSettingsOpen, setIsUserSettingsOpen] = useState(false);
+  const [userSettingsTab, setUserSettingsTab] = useState('profile');
 
-  // 监听自定义事件 - 添加错误处理
+  // 监听自定义事件
   useEffect(() => {
     const handleShowAuthModal = (event) => {
-      console.log('收到 showAuthModal 事件:', event.detail);
-      // 添加空值检查
       const tab = event.detail?.tab || 'login';
       setAuthModalTab(tab);
       setIsAuthModalOpen(true);
     };
 
-    const handleShowUserSettings = () => {
+    const handleShowUserSettings = (event) => {
+      const tab = event.detail?.tab || 'profile';
+      setUserSettingsTab(tab);
       setIsUserSettingsOpen(true);
     };
 
@@ -59,7 +60,6 @@ function App() {
 
   // 添加认证成功回调
   const handleAuthSuccess = () => {
-    console.log('认证成功，刷新页面...');
     window.location.reload();
   };
 
@@ -80,7 +80,7 @@ function App() {
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
           defaultTab={authModalTab}
-          onAuthSuccess={handleAuthSuccess}  // 添加成功回调
+          onAuthSuccess={handleAuthSuccess}
         />
 
         <UserSettingsModal 

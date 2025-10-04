@@ -1,4 +1,4 @@
-// components/UserSettingsModal.jsx (更新版本)
+// components/UserSettingsModal.jsx
 import React, { useState, useEffect } from 'react';
 import AV from 'leancloud-storage';
 import './UserSettingsModal.css';
@@ -11,6 +11,14 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState('');
+
+  // 学习统计数据状态
+  const [studyStats, setStudyStats] = useState({
+    totalCategories: 0,
+    totalQuestions: 0,
+    reviewQuestions: 0,
+    todayReviewed: 0
+  });
 
   // 表单状态
   const [profileForm, setProfileForm] = useState({
@@ -37,39 +45,107 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
     emailVerified: false
   });
 
+  // 调试用户信息
+  const debugUserInfo = (user) => {
+    if (!user) return;
+   
+  };
+
   useEffect(() => {
     if (isOpen) {
       const user = AV.User.current();
       setCurrentUser(user);
       if (user) {
+        debugUserInfo(user);
         loadUserData(user);
+        loadStudyStats(user);
       }
     }
   }, [isOpen]);
 
-  const loadUserData = (user) => {
-    setProfileForm({
-      username: user.getUsername() || '',
-      email: user.getEmail() || '',
-      nickname: user.get('nickname') || '',
-      bio: user.get('bio') || ''
-    });
+  const loadUserData = async (user) => {
+    try {
+      // 确保获取最新的用户数据
+      const freshUser = await user.fetch();
+      
+    
 
-    setPreferencesForm({
-      theme: user.get('theme') || 'light',
-      language: user.get('language') || 'zh-CN',
-      notifications: user.get('notifications') !== false,
-      emailUpdates: user.get('emailUpdates') || false
-    });
+      setProfileForm({
+        username: freshUser.getUsername() || '',
+        email: freshUser.getEmail() || '',
+        nickname: freshUser.get('nickname') || '',
+        bio: freshUser.get('bio') || ''
+      });
 
-    setSecurityForm({
-      emailVerified: user.get('emailVerified') || false
-    });
+      setPreferencesForm({
+        theme: freshUser.get('theme') || 'light',
+        language: freshUser.get('language') || 'zh-CN',
+        notifications: freshUser.get('notifications') !== false,
+        emailUpdates: freshUser.get('emailUpdates') || false
+      });
 
-    // 加载用户头像
-    const avatar = user.get('avatar');
-    if (avatar) {
-      setAvatarPreview(avatar.get('url'));
+      setSecurityForm({
+        emailVerified: freshUser.get('emailVerified') || false
+      });
+
+      // 加载用户头像 - 添加时间戳避免缓存
+      const avatar = freshUser.get('avatar');
+      if (avatar && typeof avatar === 'string') {
+        const timestamp = new Date().getTime();
+        const avatarUrlWithCacheBust = `${avatar}?t=${timestamp}`;
+        setAvatarPreview(avatarUrlWithCacheBust);
+      } else {
+        setAvatarPreview('');
+      }
+
+    } catch (error) {
+      console.error('加载用户数据失败:', error);
+    }
+  };
+
+  const loadStudyStats = async (user) => {
+    try {
+      // 获取分类数量
+      const categoriesQuery = new AV.Query('Category');
+      categoriesQuery.equalTo('createdBy', user);
+      const categories = await categoriesQuery.find();
+
+      // 获取题目数量
+      const questionsQuery = new AV.Query('Question');
+      questionsQuery.equalTo('createdBy', user);
+      const questions = await questionsQuery.find();
+
+      // 计算待复习题目
+      const now = new Date();
+      const reviewThreshold = 1;
+      const reviewQuestions = questions.filter(question => {
+        const lastReviewed = new Date(question.get('lastReviewedAt') || question.get('createdAt'));
+        const daysSinceReview = Math.floor((now - lastReviewed) / (1000 * 60 * 60 * 24));
+        return daysSinceReview >= reviewThreshold;
+      });
+
+      // 计算今日复习题目
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayReviewed = questions.filter(question => {
+        const lastReviewed = new Date(question.get('lastReviewedAt'));
+        return lastReviewed >= today;
+      }).length;
+
+      setStudyStats({
+        totalCategories: categories.length,
+        totalQuestions: questions.length,
+        reviewQuestions: reviewQuestions.length,
+        todayReviewed: todayReviewed
+      });
+    } catch (error) {
+      console.error('加载学习统计失败:', error);
+      setStudyStats({
+        totalCategories: 0,
+        totalQuestions: 0,
+        reviewQuestions: 0,
+        todayReviewed: 0
+      });
     }
   };
 
@@ -85,11 +161,11 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
 
     // 检查文件类型
     if (!file.type.startsWith('image/')) {
-      showMessage('error', '请选择图片文件');
+      showMessage('error', '请选择图片文件（JPG、PNG、GIF）');
       return;
     }
 
-    // 检查文件大小 (限制 2MB)
+    // 检查文件大小
     if (file.size > 2 * 1024 * 1024) {
       showMessage('error', '图片大小不能超过 2MB');
       return;
@@ -106,22 +182,71 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
   };
 
   const handleAvatarSave = async () => {
-    if (!avatarFile || !currentUser) return;
+    if (!avatarFile || !currentUser) {
+      showMessage('error', '请先选择图片');
+      return;
+    }
 
     setSaving(true);
     try {
-      // 创建 LeanCloud 文件对象
-      const avFile = new AV.File(avatarFile.name, avatarFile);
-      await avFile.save();
 
-      // 更新用户头像
-      currentUser.set('avatar', avFile);
-      await currentUser.save();
+      // 首先清除旧的头像预览
+      setAvatarPreview('');
+      
+      // 将文件转换为 base64
+      const fileData = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64Data = e.target.result.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.readAsDataURL(avatarFile);
+      });
 
-      showMessage('success', '头像上传成功！');
+      // 调用云函数
+      const result = await AV.Cloud.run('updateUserAvatar', {
+        fileData: fileData,
+        fileName: avatarFile.name,
+        mimeType: avatarFile.type
+      });
+
+      if (result.success) {
+        showMessage('success', '头像上传成功！');
+        
+        // 使用时间戳避免浏览器缓存
+        const timestamp = new Date().getTime();
+        const avatarUrlWithCacheBust = `${result.avatarUrl}?t=${timestamp}`;
+        
+        console.log('设置带时间戳的头像URL:', avatarUrlWithCacheBust);
+        
+        // 更新本地预览
+        setAvatarPreview(avatarUrlWithCacheBust);
+        
+        // 清除文件选择状态
+        setAvatarFile(null);
+        
+        // 重新获取用户数据
+        setTimeout(async () => {
+          try {
+            const updatedUser = await AV.User.current().fetch();
+            setCurrentUser(updatedUser);
+            console.log('用户数据已更新');
+            
+            // 强制重新渲染 Navigation 组件
+            window.dispatchEvent(new CustomEvent('userAvatarUpdated'));
+          } catch (fetchError) {
+            console.error('获取更新后的用户数据失败:', fetchError);
+          }
+        }, 1000);
+        
+      } else {
+        throw new Error(result.message || '头像上传失败');
+      }
+      
     } catch (error) {
-      console.error('头像上传失败:', error);
-      showMessage('error', `头像上传失败: ${error.message}`);
+      console.error('❌ 头像上传失败:', error);
+      showMessage('error', `上传失败: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -133,19 +258,46 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
 
     setSaving(true);
     try {
-      if (profileForm.nickname !== currentUser.get('nickname')) {
-        currentUser.set('nickname', profileForm.nickname);
-      }
-      
-      if (profileForm.bio !== currentUser.get('bio')) {
-        currentUser.set('bio', profileForm.bio);
-      }
+      console.log('开始更新个人信息...', {
+        nickname: profileForm.nickname,
+        bio: profileForm.bio
+      });
 
-      await currentUser.save();
-      showMessage('success', '个人信息更新成功！');
+      // 使用云函数更新个人信息
+      const result = await AV.Cloud.run('updateUserProfile', {
+        nickname: profileForm.nickname,
+        bio: profileForm.bio
+      });
+
+      if (result.success) {
+        showMessage('success', '个人信息更新成功！');
+        
+        // 重新获取用户数据
+        setTimeout(async () => {
+          try {
+            const updatedUser = await AV.User.current().fetch();
+            setCurrentUser(updatedUser);
+            console.log('用户数据已更新');
+          } catch (fetchError) {
+            console.error('获取更新后的用户数据失败:', fetchError);
+          }
+        }, 500);
+      } else {
+        throw new Error(result.message || '更新失败');
+      }
     } catch (error) {
       console.error('更新个人信息失败:', error);
-      showMessage('error', `更新失败: ${error.message}`);
+      
+      let errorMessage = '更新失败，请重试';
+      if (error.code === 401) {
+        errorMessage = '请先登录';
+      } else if (error.message.includes('network')) {
+        errorMessage = '网络连接失败，请检查网络';
+      } else {
+        errorMessage = `更新失败: ${error.message}`;
+      }
+      
+      showMessage('error', errorMessage);
     } finally {
       setSaving(false);
     }
@@ -191,13 +343,31 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
 
     setSaving(true);
     try {
-      currentUser.set('theme', preferencesForm.theme);
-      currentUser.set('language', preferencesForm.language);
-      currentUser.set('notifications', preferencesForm.notifications);
-      currentUser.set('emailUpdates', preferencesForm.emailUpdates);
+      console.log('开始更新偏好设置...', preferencesForm);
 
-      await currentUser.save();
-      showMessage('success', '偏好设置更新成功！');
+      // 使用云函数更新偏好设置
+      const result = await AV.Cloud.run('updateUserPreferences', {
+        theme: preferencesForm.theme,
+        language: preferencesForm.language,
+        notifications: preferencesForm.notifications,
+        emailUpdates: preferencesForm.emailUpdates
+      });
+
+      if (result.success) {
+        showMessage('success', '偏好设置更新成功！');
+        
+        // 重新获取用户数据
+        setTimeout(async () => {
+          try {
+            const updatedUser = await AV.User.current().fetch();
+            setCurrentUser(updatedUser);
+          } catch (fetchError) {
+            console.error('获取更新后的用户数据失败:', fetchError);
+          }
+        }, 500);
+      } else {
+        throw new Error(result.message || '更新失败');
+      }
     } catch (error) {
       console.error('更新偏好设置失败:', error);
       showMessage('error', `更新失败: ${error.message}`);
@@ -248,13 +418,10 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
   const handleDataExport = async () => {
     setLoading(true);
     try {
-      // 获取用户的所有数据
       const [categories, questions] = await Promise.all([
-        // 获取分类数据
         new AV.Query('Category')
           .equalTo('createdBy', currentUser)
           .find(),
-        // 获取题目数据
         new AV.Query('Question')
           .equalTo('createdBy', currentUser)
           .include('category')
@@ -295,7 +462,6 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
         }))
       };
 
-      // 创建下载链接
       const dataStr = JSON.stringify(exportData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
@@ -388,8 +554,8 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
               className={`sidebar-item ${activeTab === 'data' ? 'active' : ''}`}
               onClick={() => setActiveTab('data')}
             >
-              <span className="item-icon">💾</span>
-              <span className="item-text">数据管理</span>
+              <span className="item-icon">📊</span>
+              <span className="item-text">学习统计</span>
             </button>
           </div>
 
@@ -404,7 +570,21 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
                   <div className="avatar-upload">
                     <div className="avatar-preview">
                       {avatarPreview ? (
-                        <img src={avatarPreview} alt="头像预览" />
+                        <img 
+                          src={avatarPreview} 
+                          alt="头像预览"
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            objectPosition: 'center'
+                          }}
+                          onLoad={() => console.log('✅ 头像预览加载成功')}
+                          onError={(e) => {
+                            console.error('❌ 头像预览加载失败:', avatarPreview);
+                            e.target.style.display = 'none';
+                          }}
+                        />
                       ) : (
                         <div className="avatar-placeholder">
                           {profileForm.username?.charAt(0).toUpperCase()}
@@ -620,7 +800,6 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
               <div className="tab-content">
                 <h3>偏好设置</h3>
                 <form onSubmit={handlePreferencesUpdate} className="settings-form">
-                  {/* 原有的偏好设置表单保持不变 */}
                   <div className="form-group">
                     <label>主题模式</label>
                     <div className="radio-group">
@@ -713,8 +892,74 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
 
             {activeTab === 'data' && (
               <div className="tab-content">
-                <h3>数据管理</h3>
+                <h3>学习统计</h3>
                 
+                {/* 使用与 HomePage 相同的统计样式 */}
+                <div className="stats-overview">
+                  <div className="stats-grid">
+                    <div className="stat-card">
+                      <div className="stat-icon">📚</div>
+                      <div className="stat-content">
+                        <div className="stat-number">{studyStats.totalCategories}</div>
+                        <div className="stat-label">知识分类</div>
+                      </div>
+                    </div>
+                    
+                    <div className="stat-card">
+                      <div className="stat-icon">❓</div>
+                      <div className="stat-content">
+                        <div className="stat-number">{studyStats.totalQuestions}</div>
+                        <div className="stat-label">题目总数</div>
+                      </div>
+                    </div>
+                    
+                    <div className="stat-card">
+                      <div className="stat-icon">📖</div>
+                      <div className="stat-content">
+                        <div className="stat-number">{studyStats.reviewQuestions}</div>
+                        <div className="stat-label">待复习</div>
+                      </div>
+                    </div>
+                    
+                    <div className="stat-card">
+                      <div className="stat-icon">⚡</div>
+                      <div className="stat-content">
+                        <div className="stat-number">{studyStats.todayReviewed}</div>
+                        <div className="stat-label">今日复习</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 进度统计 */}
+                <div className="progress-section">
+                  <div className="progress-item">
+                    <div className="progress-header">
+                      <span className="progress-label">复习进度</span>
+                      <span className="progress-percent">
+                        {studyStats.totalQuestions > 0 
+                          ? Math.round(((studyStats.totalQuestions - studyStats.reviewQuestions) / studyStats.totalQuestions) * 100)
+                          : 0
+                        }%
+                      </span>
+                    </div>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill"
+                        style={{ 
+                          width: `${studyStats.totalQuestions > 0 
+                            ? ((studyStats.totalQuestions - studyStats.reviewQuestions) / studyStats.totalQuestions) * 100 
+                            : 0
+                          }%` 
+                        }}
+                      ></div>
+                    </div>
+                    <div className="progress-text">
+                      已复习 {studyStats.totalQuestions - studyStats.reviewQuestions} / {studyStats.totalQuestions} 题目
+                    </div>
+                  </div>
+                </div>
+
                 {/* 数据导出 */}
                 <div className="data-section">
                   <h4>数据导出</h4>
@@ -732,44 +977,6 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
                     >
                       {loading ? '导出中...' : '导出数据'}
                     </button>
-                  </div>
-                </div>
-
-                {/* 数据统计 */}
-                <div className="data-section">
-                  <h4>学习统计</h4>
-                  <div className="stats-grid">
-                    <div className="stat-card">
-                      <div className="stat-icon">📚</div>
-                      <div className="stat-content">
-                        <div className="stat-number">0</div>
-                        <div className="stat-label">总分类数</div>
-                      </div>
-                    </div>
-                    
-                    <div className="stat-card">
-                      <div className="stat-icon">❓</div>
-                      <div className="stat-content">
-                        <div className="stat-number">0</div>
-                        <div className="stat-label">总题目数</div>
-                      </div>
-                    </div>
-                    
-                    <div className="stat-card">
-                      <div className="stat-icon">📅</div>
-                      <div className="stat-content">
-                        <div className="stat-number">0</div>
-                        <div className="stat-label">学习天数</div>
-                      </div>
-                    </div>
-                    
-                    <div className="stat-card">
-                      <div className="stat-icon">⚡</div>
-                      <div className="stat-content">
-                        <div className="stat-number">0</div>
-                        <div className="stat-label">日均题目</div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 

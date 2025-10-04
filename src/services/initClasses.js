@@ -1,11 +1,7 @@
 // initClasses.js
 import AV from 'leancloud-storage';
 
-console.log('环境变量:', {
-  appId: process.env.REACT_APP_LC_APP_ID,
-  appKey: process.env.REACT_APP_LC_APP_KEY,
-  serverURL: process.env.REACT_APP_LC_SERVER_URL
-});
+
 
 // 初始化配置
 AV.init({
@@ -77,7 +73,6 @@ const NotionFieldMapping = {
  */
 export const createCommunityClasses = async () => {
   try {
-    console.log('🚀 开始创建社区相关数据表...');
     
     const results = {
       Post: await createPostClass(),
@@ -86,10 +81,8 @@ export const createCommunityClasses = async () => {
       Follow: await createFollowClass()
     };
     
-    console.log('✅ 社区数据表创建完成:', results);
     return results;
   } catch (error) {
-    console.error('❌ 创建社区数据表失败:', error);
     throw new Error(`创建社区数据表失败: ${error.message}`);
   }
 };
@@ -103,7 +96,6 @@ const createPostClass = async () => {
     const query = new AV.Query(CommunityClasses.POST);
     const existing = await query.first().catch(() => null);
     if (existing) {
-      console.log('📝 Post 类已存在，跳过创建');
       return { exists: true, message: 'Post class already exists' };
     }
 
@@ -515,7 +507,6 @@ const createSampleLikes = async () => {
  */
 export const clearCommunityData = async () => {
   try {
-    console.log('开始清除社区数据...');
     
     let deletedCount = {
       posts: 0,
@@ -533,7 +524,6 @@ export const clearCommunityData = async () => {
         deletedCount.likes = likes.length;
       }
     } catch (error) {
-      console.log('没有点赞数据需要删除:', error.message);
     }
     
     // 清除评论数据
@@ -545,7 +535,6 @@ export const clearCommunityData = async () => {
         deletedCount.comments = comments.length;
       }
     } catch (error) {
-      console.log('没有评论数据需要删除:', error.message);
     }
     
     // 清除帖子数据
@@ -557,7 +546,6 @@ export const clearCommunityData = async () => {
         deletedCount.posts = posts.length;
       }
     } catch (error) {
-      console.log('没有帖子数据需要删除:', error.message);
     }
     
     // 清除关注数据
@@ -569,11 +557,9 @@ export const clearCommunityData = async () => {
         deletedCount.follows = follows.length;
       }
     } catch (error) {
-      console.log('没有关注数据需要删除:', error.message);
     }
     
     const message = `社区数据清除完成: ${deletedCount.posts} 帖子, ${deletedCount.comments} 评论, ${deletedCount.likes} 点赞, ${deletedCount.follows} 关注`;
-    console.log('✅ ' + message);
     
     return {
       success: true,
@@ -593,7 +579,6 @@ export const clearCommunityData = async () => {
  */
 export const syncProblemsFromNotion = async () => {
   try {
-    console.log('🚀 开始从 Notion 同步数据...');
     
     // 检查环境变量是否配置
     if (!process.env.REACT_APP_NOTION_TOKEN || !process.env.REACT_APP_NOTION_DATABASE_ID) {
@@ -605,7 +590,6 @@ export const syncProblemsFromNotion = async () => {
       const result = await AV.Cloud.run('syncProblemsFromNotion');
       return result;
     } catch (cloudError) {
-      console.log('云函数调用失败，使用客户端版本同步:', cloudError.message);
       // 回退到客户端版本同步
       return await syncWithClientVersion();
     }
@@ -869,7 +853,6 @@ const findOrCreateCategory = async (categoryName) => {
     category.setACL(acl);
     
     await category.save();
-    console.log(`📁 创建新分类: ${categoryName}`);
   }
   
   return category;

@@ -36,15 +36,15 @@ const ReviewReminderSection = ({
     return `${diffMonths}月前`;
   };
 
-  // 获取紧急程度 - 修复版本
+  // 获取紧急程度 - 修改后的版本：1天=急需，3天=建议，5天=稍后
   const getUrgencyLevel = (question) => {
     // 使用 lastReviewedAt 字段，如果不存在则使用 createdAt
     const lastReviewed = new Date(question.lastReviewedAt || question.createdAt);
     const daysAgo = Math.floor((new Date() - lastReviewed) / (1000 * 60 * 60 * 24));
     
-    if (daysAgo >= 30) return 'high';
-    if (daysAgo >= 14) return 'medium';
-    return 'low';
+    if (daysAgo >= 5) return 'high';     // 5天及以上 = 急需复习
+    if (daysAgo >= 3) return 'medium';   // 3-4天 = 建议复习
+    return 'low';                        // 1-2天 = 可稍后复习
   };
 
   // 获取紧急程度颜色
@@ -64,6 +64,16 @@ const ReviewReminderSection = ({
       case 'medium': return '建议复习';
       case 'low': return '可稍后复习';
       default: return '未知';
+    }
+  };
+
+  // 获取紧急程度对应的天数描述
+  const getUrgencyDaysDescription = (urgency) => {
+    switch (urgency) {
+      case 'high': return '5天以上未复习';
+      case 'medium': return '3-4天未复习';
+      case 'low': return '1-2天未复习';
+      default: return '';
     }
   };
 
@@ -215,11 +225,11 @@ const ReviewReminderSection = ({
     return matchesSearch && urgency === selectedUrgency;
   });
 
-  // 按紧急程度分组
+  // 按紧急程度分组 - 使用新的天数标准
   const questionsByUrgency = {
-    high: filteredQuestions.filter(q => getUrgencyLevel(q) === 'high'),
-    medium: filteredQuestions.filter(q => getUrgencyLevel(q) === 'medium'),
-    low: filteredQuestions.filter(q => getUrgencyLevel(q) === 'low')
+    high: filteredQuestions.filter(q => getUrgencyLevel(q) === 'high'),    // 5天以上
+    medium: filteredQuestions.filter(q => getUrgencyLevel(q) === 'medium'), // 3-4天
+    low: filteredQuestions.filter(q => getUrgencyLevel(q) === 'low')        // 1-2天
   };
 
   // 获取进度百分比
@@ -269,6 +279,7 @@ const ReviewReminderSection = ({
               <div className="stat-content">
                 <div className="stat-number">{questionsByUrgency.high.length}</div>
                 <div className="stat-label">急需复习</div>
+                <div className="stat-description">5天以上</div>
               </div>
             </div>
             <div className="stat-card medium">
@@ -276,6 +287,7 @@ const ReviewReminderSection = ({
               <div className="stat-content">
                 <div className="stat-number">{questionsByUrgency.medium.length}</div>
                 <div className="stat-label">建议复习</div>
+                <div className="stat-description">3-4天</div>
               </div>
             </div>
             <div className="stat-card low">
@@ -283,6 +295,7 @@ const ReviewReminderSection = ({
               <div className="stat-content">
                 <div className="stat-number">{questionsByUrgency.low.length}</div>
                 <div className="stat-label">可稍后复习</div>
+                <div className="stat-description">1-2天</div>
               </div>
             </div>
             <div className="stat-card total">
@@ -290,6 +303,7 @@ const ReviewReminderSection = ({
               <div className="stat-content">
                 <div className="stat-number">{reviewQuestions.length}</div>
                 <div className="stat-label">待复习题目</div>
+                <div className="stat-description">总计</div>
               </div>
             </div>
           </div>
@@ -337,19 +351,19 @@ const ReviewReminderSection = ({
                 className={`urgency-btn high ${selectedUrgency === 'high' ? 'active' : ''}`}
                 onClick={() => setSelectedUrgency('high')}
               >
-                🔥 急需
+                🔥 急需 (5天+)
               </button>
               <button
                 className={`urgency-btn medium ${selectedUrgency === 'medium' ? 'active' : ''}`}
                 onClick={() => setSelectedUrgency('medium')}
               >
-                ⚠️ 建议
+                ⚠️ 建议 (3-4天)
               </button>
               <button
                 className={`urgency-btn low ${selectedUrgency === 'low' ? 'active' : ''}`}
                 onClick={() => setSelectedUrgency('low')}
               >
-                💡 稍后
+                💡 稍后 (1-2天)
               </button>
             </div>
           </div>
@@ -388,8 +402,9 @@ const ReviewReminderSection = ({
                     <input
                       id="reviewThreshold"
                       type="range"
-                      min="0.1"
+                      min="1"
                       max="30"
+                      step="1"
                       value={reviewThreshold}
                       onChange={(e) => setReviewThreshold(parseInt(e.target.value))}
                       className="threshold-slider"
@@ -397,7 +412,7 @@ const ReviewReminderSection = ({
                     <span className="threshold-value">{reviewThreshold} 天</span>
                   </div>
                   <div className="threshold-presets">
-                    {[1, 3, 7, 14, 30].map(days => (
+                    {[1, 3, 5, 7, 14, 30].map(days => (
                       <button
                         key={days}
                         className={`preset-btn ${reviewThreshold === days ? 'active' : ''}`}
@@ -409,14 +424,34 @@ const ReviewReminderSection = ({
                   </div>
                 </div>
                 
-                <div className="setting-info">
-                  <h4>📋 复习建议</h4>
-                  <ul>
-                    <li>• <strong>1-3天</strong>: 适合高频复习，记忆强化期</li>
-                    <li>• <strong>7天</strong>: 标准复习周期，适合大多数知识点</li>
-                    <li>• <strong>14-30天</strong>: 长期记忆巩固，适合已掌握内容</li>
-                  </ul>
+                <div className="urgency-explanation">
+                  <h4>📋 紧急程度说明</h4>
+                  <div className="urgency-levels">
+                    <div className="urgency-level high">
+                      <span className="urgency-color" style={{backgroundColor: '#ff6b6b'}}></span>
+                      <div className="urgency-info">
+                        <strong>急需复习 (红色)</strong>
+                        <span>5天以上未复习的题目</span>
+                      </div>
+                    </div>
+                    <div className="urgency-level medium">
+                      <span className="urgency-color" style={{backgroundColor: '#ffa726'}}></span>
+                      <div className="urgency-info">
+                        <strong>建议复习 (橙色)</strong>
+                        <span>3-4天未复习的题目</span>
+                      </div>
+                    </div>
+                    <div className="urgency-level low">
+                      <span className="urgency-color" style={{backgroundColor: '#4ecdc4'}}></span>
+                      <div className="urgency-info">
+                        <strong>可稍后复习 (青色)</strong>
+                        <span>1-2天未复习的题目</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                
               </div>
               
               <div className="modal-actions">
@@ -456,7 +491,7 @@ const ReviewReminderSection = ({
               {filteredQuestions.map((question, index) => {
                 const urgency = getUrgencyLevel(question);
                 const urgencyColor = getUrgencyColor(urgency);
-                // 修复：使用 lastReviewedAt 字段
+                // 使用 lastReviewedAt 字段
                 const lastReviewed = new Date(question.lastReviewedAt || question.createdAt);
                 const daysAgo = Math.floor((new Date() - lastReviewed) / (1000 * 60 * 60 * 24));
                 const isUpdating = updatingQuestions.has(question.id);
@@ -483,6 +518,9 @@ const ReviewReminderSection = ({
                           上次复习: {formatTimeAgo(question.lastReviewedAt || question.createdAt)}
                         </span>
                         <span className="days-ago">({daysAgo}天前)</span>
+                        <span className="urgency-description">
+                          {getUrgencyDaysDescription(urgency)}
+                        </span>
                       </div>
                     </div>
                     

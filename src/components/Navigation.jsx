@@ -29,6 +29,29 @@ const Navigation = ({ onShowAuthModal }) => {
     };
   }, []);
 
+  // 添加头像更新事件监听
+  useEffect(() => {
+    const handleAvatarUpdate = async () => {
+      console.log('收到头像更新事件，重新加载用户数据');
+      const user = AV.User.current();
+      if (user) {
+        try {
+          const freshUser = await user.fetch();
+          setCurrentUser(freshUser);
+          console.log('Navigation 用户数据已更新');
+        } catch (error) {
+          console.error('重新加载用户数据失败:', error);
+        }
+      }
+    };
+
+    window.addEventListener('userAvatarUpdated', handleAvatarUpdate);
+    
+    return () => {
+      window.removeEventListener('userAvatarUpdated', handleAvatarUpdate);
+    };
+  }, []);
+
   const handleLogout = async () => {
     try {
       await AV.User.logOut();
@@ -52,24 +75,52 @@ const Navigation = ({ onShowAuthModal }) => {
     return userEmail === 'wu1149823510@outlook.com';
   };
 
-  // 头像组件 - 提取出来避免重复代码
+  // 优化的头像组件 - 支持缓存清除和完全覆盖
   const UserAvatar = ({ user, size = 'normal' }) => {
-    const hasAvatar = user.get('avatar');
+    const avatar = user.get('avatar');
     const fallbackText = user.getUsername()?.charAt(0).toUpperCase();
+    
+    // 添加时间戳避免缓存
+    const getAvatarUrl = () => {
+      if (!avatar) return null;
+      
+      if (typeof avatar === 'string') {
+        const timestamp = new Date().getTime();
+        return `${avatar}?t=${timestamp}`;
+      } else if (typeof avatar.get === 'function') {
+        return avatar.get('url');
+      }
+      return null;
+    };
+    
+    const avatarUrl = getAvatarUrl();
     
     return (
       <div className={`user-avatar ${size === 'large' ? 'user-avatar-large' : ''}`}>
-        {hasAvatar ? (
+        {avatarUrl ? (
           <>
             <img 
-              src={user.get('avatar').get('url')} 
+              src={avatarUrl} 
               alt="用户头像"
+              onLoad={() => console.log('✅ Navigation 头像加载成功')}
               onError={(e) => {
+                console.error('❌ Navigation 头像加载失败:', avatarUrl);
                 e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
+                // 显示占位符
+                const fallback = e.target.nextSibling;
+                if (fallback) fallback.style.display = 'flex';
+              }}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center'
               }}
             />
-            <div className={`avatar-fallback ${size === 'large' ? 'avatar-fallback-large' : ''}`}>
+            <div 
+              className={`avatar-fallback ${size === 'large' ? 'avatar-fallback-large' : ''}`}
+              style={{ display: 'none' }}
+            >
               {fallbackText}
             </div>
           </>
@@ -205,7 +256,6 @@ const Navigation = ({ onShowAuthModal }) => {
                             className="dropdown-item"
                             onClick={() => {
                               setShowUserMenu(false);
-                              // 这里可以添加其他管理员功能
                               console.log('管理员功能');
                             }}
                           >

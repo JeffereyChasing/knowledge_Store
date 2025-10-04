@@ -798,3 +798,505 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 学习统计样式 - 增大容器尺寸 */
+.stats-overview {
+  margin-bottom: 30px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 25px; /* 增大间距 */
+  margin-bottom: 30px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px 25px; /* 增大内边距 */
+  border-radius: 20px; /* 增大圆角 */
+  display: flex;
+  align-items: center;
+  gap: 25px; /* 增大图标和内容的间距 */
+  box-shadow: 0 12px 35px rgba(102, 126, 234, 0.4);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  min-height: 140px; /* 设置最小高度 */
+  height: auto; /* 自动高度 */
+}
+
+.stat-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 50px rgba(102, 126, 234, 0.5);
+}
+
+.stat-icon {
+  font-size: 3em; /* 增大图标 */
+  width: 80px; /* 增大图标容器 */
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 20px; /* 增大圆角 */
+  backdrop-filter: blur(15px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0; /* 防止图标被压缩 */
+}
+
+.stat-content {
+  flex: 1;
+  min-width: 0; /* 防止文本溢出 */
+}
+
+.stat-number {
+  font-size: 2.8em; /* 增大数字字体 */
+  font-weight: 800;
+  margin-bottom: 8px;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 1.1em; /* 增大标签字体 */
+  opacity: 0.95;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* 进度条样式 */
+.progress-section {
+  background: white;
+  padding: 30px; /* 增大内边距 */
+  border-radius: 20px;
+  border: 2px solid #e2e8f0;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+.progress-item {
+  margin-bottom: 0;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px; /* 增大间距 */
+}
+
+.progress-label {
+  font-weight: 700;
+  color: #2d3748;
+  font-size: 1.3em; /* 增大字体 */
+}
+
+.progress-percent {
+  font-weight: 800;
+  color: #667eea;
+  font-size: 1.4em; /* 增大字体 */
+}
+
+.progress-bar {
+  height: 16px; /* 增大进度条高度 */
+  background: #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 15px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ecdc4, #667eea, #764ba2);
+  border-radius: 10px;
+  transition: width 0.8s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.progress-text {
+  color: #718096;
+  font-size: 1.05em; /* 增大字体 */
+  text-align: center;
+  font-weight: 500;
+}
+
+/* 数据管理部分 */
+.data-section {
+  margin-bottom: 35px; /* 增大间距 */
+}
+
+.data-section h4 {
+  margin: 0 0 25px 0;
+  color: #2d3748;
+  font-size: 1.3em; /* 增大字体 */
+  font-weight: 700;
+}
+
+.data-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 25px; /* 增大内边距 */
+  background: #f7fafc;
+  border-radius: 16px; /* 增大圆角 */
+  border: 2px solid #e2e8f0;
+  margin-bottom: 20px; /* 增大间距 */
+  min-height: 90px; /* 设置最小高度 */
+}
+
+.data-item.danger {
+  border-color: #fed7d7;
+  background: #fff5f5;
+}
+
+.data-info {
+  flex: 1;
+}
+
+.data-label {
+  display: block;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 8px;
+  font-size: 1.1em; /* 增大字体 */
+}
+
+.data-description {
+  display: block;
+  color: #718096;
+  font-size: 0.95em; /* 增大字体 */
+  line-height: 1.5;
+}
+
+.data-action-btn {
+  padding: 14px 28px; /* 增大按钮尺寸 */
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 12px; /* 增大圆角 */
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  font-size: 1em; /* 增大字体 */
+  min-width: 120px; /* 设置最小宽度 */
+}
+
+.data-action-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+}
+
+.data-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.data-action-btn.danger {
+  background: linear-gradient(135deg, #f56565, #e53e3e);
+}
+
+.data-action-btn.danger:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(245, 101, 101, 0.4);
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  
+  .stat-card {
+    padding: 25px 20px;
+    min-height: 130px;
+  }
+  
+  .stat-icon {
+    font-size: 2.8em;
+    width: 70px;
+    height: 70px;
+  }
+  
+  .stat-number {
+    font-size: 2.5em;
+  }
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .stat-card {
+    padding: 25px;
+    min-height: 120px;
+    gap: 20px;
+  }
+  
+  .stat-icon {
+    font-size: 2.5em;
+    width: 65px;
+    height: 65px;
+  }
+  
+  .stat-number {
+    font-size: 2.3em;
+  }
+  
+  .data-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 20px;
+  }
+  
+  .data-action-btn {
+    align-self: stretch;
+    text-align: center;
+    padding: 16px;
+  }
+  
+  .progress-section {
+    padding: 25px;
+  }
+  
+  .progress-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stat-card {
+    padding: 20px;
+    min-height: 110px;
+    gap: 18px;
+  }
+  
+  .stat-icon {
+    font-size: 2.2em;
+    width: 60px;
+    height: 60px;
+  }
+  
+  .stat-number {
+    font-size: 2em;
+  }
+  
+  .stat-label {
+    font-size: 1em;
+  }
+  
+  .progress-section {
+    padding: 20px;
+  }
+  
+  .progress-bar {
+    height: 14px;
+  }
+  
+  .data-item {
+    padding: 18px;
+  }
+}
+
+/* 如果还需要更大的卡片，可以使用这个超大型版本 */
+.stat-card.extra-large {
+  padding: 35px 30px;
+  min-height: 160px;
+  gap: 30px;
+}
+
+.stat-card.extra-large .stat-icon {
+  font-size: 3.5em;
+  width: 90px;
+  height: 90px;
+}
+
+.stat-card.extra-large .stat-number {
+  font-size: 3.2em;
+}
+
+.stat-card.extra-large .stat-label {
+  font-size: 1.2em;
+}
+/* 头像上传区域样式 */
+.avatar-section {
+  margin-bottom: 30px;
+  padding: 25px;
+  background: #f8f9fa;
+  border-radius: 15px;
+  border: 2px dashed #dee2e6;
+}
+
+.avatar-upload {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 15px;
+}
+
+.avatar-preview {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 2.5em;
+  font-weight: bold;
+}
+
+.avatar-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.avatar-input {
+  display: none;
+}
+
+.avatar-upload-btn {
+  padding: 12px 24px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.avatar-upload-btn:hover {
+  background: #5a6fd8;
+  transform: translateY(-2px);
+}
+
+.avatar-save-btn {
+  padding: 12px 24px;
+  background: #4ecdc4;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.avatar-save-btn:hover:not(:disabled) {
+  background: #45b7af;
+  transform: translateY(-2px);
+}
+
+.avatar-save-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.avatar-hint {
+  color: #6c757d;
+  font-size: 0.9em;
+  text-align: center;
+}
+
+/* UserSettingsModal.css 中的头像样式 */
+.avatar-preview {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  position: relative;
+  background: #f8f9fa; /* 添加背景色避免透明区域 */
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 确保图片覆盖整个容器 */
+  object-position: center; /* 图片居中显示 */
+  display: block; /* 移除图片底部间隙 */
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 2.5em;
+  font-weight: bold;
+  border-radius: 50%;
+}
+
+/* Navigation.css 中的头像样式 */
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  background: #f8f9fa; /* 添加背景色 */
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-avatar-large {
+  width: 80px;
+  height: 80px;
+}
+
+.user-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 关键：确保图片覆盖 */
+  object-position: center;
+  display: block;
+}
+
+.avatar-fallback {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  border-radius: 50%;
+}
+
+.avatar-fallback-large {
+  font-size: 2em;
+}
