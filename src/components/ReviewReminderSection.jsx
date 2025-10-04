@@ -86,12 +86,6 @@ const ReviewReminderSection = ({
       return;
     }
     
-    console.log('开始处理复习:', {
-      questionId,
-      hasOnUpdateQuestionTime: !!onUpdateQuestionTime,
-      currentQuestions: questions.length,
-      reviewQuestions: reviewQuestions.length
-    });
 
     // 验证题目是否存在
     const question = questions.find(q => q.id === questionId);
@@ -101,14 +95,7 @@ const ReviewReminderSection = ({
       return;
     }
 
-    console.log('找到题目:', {
-      id: question.id,
-      title: question.title,
-      lastReviewedAt: question.lastReviewedAt,
-      updatedAt: question.updatedAt,
-      category: question.category
-    });
-    
+
     // 添加到更新中的集合
     setUpdatingQuestions(prev => new Set(prev).add(questionId));
     

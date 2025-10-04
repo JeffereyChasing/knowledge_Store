@@ -109,6 +109,8 @@ const PostCard = ({ post }) => {
             src={getAvatarUrl()} 
             alt="用户头像"
             className="author-avatar"
+            style={{ width: '40px', height: '40px' }} // 内联样式作为备选
+
           />
           <div className="author-info">
             <div className="author-name">{getUsername()}</div>

@@ -310,3 +310,43 @@
   color: #888;
   margin-bottom: 1rem;
 }
+/* 用户头像样式 */
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+/* 如果是在帖子卡片中的头像 */
+.post-card .user-avatar {
+  width: 36px;
+  height: 36px;
+}
+
+/* 在社区统计组件中的头像 */
+.community-stats .user-avatar {
+  width: 32px;
+  height: 32px;
+}
+
+/* 在创建帖子模态框中的头像 */
+.create-post-modal .user-avatar {
+  width: 44px;
+  height: 44px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .post-card .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+}

@@ -132,3 +132,13 @@
     color: #667eea;
     background: rgba(102, 126, 234, 0.1);
   }
+
+
+  /* PostCard.css */
+.post-header .user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #e9ecef;
+}

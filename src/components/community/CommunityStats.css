@@ -87,3 +87,12 @@
       min-width: auto;
     }
   }
+
+  /* CommunityStats.css */
+.top-contributors .user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #dee2e6;
+}

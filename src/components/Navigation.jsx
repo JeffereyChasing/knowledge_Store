@@ -38,7 +38,6 @@ const Navigation = ({ onShowAuthModal }) => {
         try {
           const freshUser = await user.fetch();
           setCurrentUser(freshUser);
-          console.log('Navigation 用户数据已更新');
         } catch (error) {
           console.error('重新加载用户数据失败:', error);
         }
