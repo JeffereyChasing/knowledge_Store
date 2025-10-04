@@ -478,3 +478,36 @@
   color: #666;
   opacity: 0.7;
 }
+
+/* QuestionForm.css */
+.question-form-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; /* 确保在最上层 */
+  padding: 20px;
+}
+
+.question-form-dialog {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 800px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  z-index: 10000;
+  position: relative;
+}
+
+/* 确保虚拟化容器的 z-index 较低 */
+.questions-container {
+  z-index: 1;
+  position: relative;
+}

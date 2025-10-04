@@ -4,7 +4,17 @@ import QuestionForm from './QuestionForm';
 import AV from 'leancloud-storage';
 import './QuestionDetailCard.css';
 
-const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = false, onUpdateField }) => {
+const QuestionDetailCard = ({ 
+  question, 
+  onDelete, 
+  isExpandedView = false, 
+  onUpdateField,
+  onEdit, // 新增：接收编辑回调函数
+  showQuestionForm, // 新增：控制表单显示
+  setShowQuestionForm, // 新增：控制表单显示状态
+  editingQuestion, // 新增：正在编辑的题目
+  setEditingQuestion // 新增：设置编辑题目
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showFullAnswer, setShowFullAnswer] = useState(isExpandedView);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -215,12 +225,20 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
     );
   };
 
+  // 修改后的编辑处理函数 - 调用父组件的 onEdit
   const handleEdit = () => {
     if (!currentUser) {
       alert('请先登录');
       return;
     }
-    setIsEditing(true);
+    
+    if (onEdit) {
+      // 调用父组件的编辑函数
+      onEdit(question);
+    } else {
+      // 如果没有提供 onEdit，使用原来的内部状态管理
+      setIsEditing(true);
+    }
   };
 
   const handleDelete = async () => {
@@ -245,12 +263,9 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
     }
   };
 
+  // 内部编辑状态的处理函数（如果使用内部状态）
   const handleSave = () => {
     setIsEditing(false);
-    // 确保父组件重新获取数据
-    if (onUpdate) {
-      onUpdate();
-    }
   };
 
   const handleCancel = () => {
@@ -329,11 +344,6 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
         
         // 关闭确认对话框
         setShowReviewConfirm(false);
-        
-        // 通知父组件更新
-        if (onUpdate) {
-          onUpdate();
-        }
       }
     } catch (error) {
       console.error('确认复习失败:', error);
@@ -368,11 +378,6 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
         
         // 关闭确认对话框
         setShowRemoveReview(false);
-        
-        // 通知父组件更新
-        if (onUpdate) {
-          onUpdate();
-        }
       }
     } catch (error) {
       console.error('移除复习失败:', error);
@@ -403,7 +408,8 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
     );
   }
 
-  if (isEditing) {
+  // 如果使用内部编辑状态并且正在编辑
+  if (isEditing && !onEdit) {
     return (
       <div className={`question-edit-container ${isExpandedView ? 'expanded-view' : ''}`}>
         <QuestionForm
@@ -453,6 +459,7 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
             >
               {editLoading ? '编辑中...' : '✏️ 编辑'}
             </button>
+
             <button 
               onClick={() => setShowRemoveReview(true)}
               className="btn-remove-review"
@@ -820,6 +827,39 @@ const QuestionDetailCard = ({ question, onUpdate, onDelete, isExpandedView = fal
           >
             🗑️ 删除题目
           </button>
+        </div>
+      )}
+
+      {/* 在虚拟化容器之外渲染编辑表单 - 新增 */}
+      {showQuestionForm && editingQuestion && editingQuestion.id === question.id && (
+        <div 
+          className="form-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+        >
+          <QuestionForm
+            question={editingQuestion}
+            onSave={() => {
+              setShowQuestionForm(false);
+  setEditingQuestion(null);
+            }}
+            onCancel={() => {
+              setShowQuestionForm(false);
+              setEditingQuestion(null);
+            }}
+            defaultCategoryId={question?.category?.id}
+          />
         </div>
       )}
     </div>

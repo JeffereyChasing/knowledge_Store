@@ -799,50 +799,50 @@ const HomePage = () => {
                   </div>
 
                   <form onSubmit={handleAddCategory} className="category-form">
-                    <div className="form-group">
-                      <label htmlFor="categoryName">分类名称 *</label>
-                      <input
-                        id="categoryName"
-                        type="text"
-                        value={newCategoryName}
-                        onChange={(e) => setNewCategoryName(e.target.value)}
-                        placeholder="请输入分类名称"
-                        maxLength={50}
-                        autoFocus
-                      />
-                    </div>
+  <div className="form-group">
+    <label htmlFor="categoryName">分类名称 *</label>
+    <input
+      id="categoryName"
+      type="text"
+      value={newCategoryName}
+      onChange={(e) => setNewCategoryName(e.target.value)}
+      placeholder="请输入分类名称"
+      maxLength={50}
+      autoFocus
+      style={{ color: 'black' }}  // 输入框文字设为黑色
+    />
+  </div>
 
-                    <div className="form-group">
-                      <label htmlFor="categoryDescription">分类描述</label>
-                      <textarea
-                        id="categoryDescription"
-                        value={newCategoryDescription}
-                        onChange={(e) =>
-                          setNewCategoryDescription(e.target.value)
-                        }
-                        placeholder="请输入分类描述（可选）"
-                        rows="3"
-                        maxLength={200}
-                      />
-                    </div>
+  <div className="form-group">
+    <label htmlFor="categoryDescription">分类描述</label>
+    <textarea
+      id="categoryDescription"
+      value={newCategoryDescription}
+      onChange={(e) => setNewCategoryDescription(e.target.value)}
+      placeholder="请输入分类描述（可选）"
+      rows="3"
+      maxLength={200}
+      style={{ color: 'black' }}  // 文本域文字设为黑色
+    />
+  </div>
 
-                    <div className="form-actions">
-                      <button
-                        type="button"
-                        className="cancel-btn"
-                        onClick={() => setShowAddCategory(false)}
-                      >
-                        取消
-                      </button>
-                      <button
-                        type="submit"
-                        className="submit-btn"
-                        disabled={addingCategory || !newCategoryName.trim()}
-                      >
-                        {addingCategory ? "创建中..." : "创建分类"}
-                      </button>
-                    </div>
-                  </form>
+  <div className="form-actions">
+    <button
+      type="button"
+      className="cancel-btn"
+      onClick={() => setShowAddCategory(false)}
+    >
+      取消
+    </button>
+    <button
+      type="submit"
+      className="submit-btn"
+      disabled={addingCategory || !newCategoryName.trim()}
+    >
+      {addingCategory ? "创建中..." : "创建分类"}
+    </button>
+  </div>
+</form>
                 </div>
               </div>
             )}

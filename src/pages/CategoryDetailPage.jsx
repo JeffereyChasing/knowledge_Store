@@ -1,22 +1,8 @@
 // pages/CategoryDetailPage.jsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-
-/**
- * ==================== TanStack Query 核心 Hook ====================
- * useInfiniteQuery: 用于处理分页和无限滚动数据
- * useMutation: 用于处理数据修改操作（增删改）
- * useQueryClient: 提供对 QueryClient 实例的访问，用于手动操作缓存
- */
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-
-/**
- * ==================== React Virtual 虚拟化 Hook ====================
- * useVirtualizer: 核心虚拟化 Hook，用于优化大量数据的渲染性能
- * 只渲染可见区域的元素，大幅提升长列表性能
- */
 import { useVirtualizer } from '@tanstack/react-virtual';
-
 import { initAV, getCategoryWithQuestions, getAllCategories, getQuestionsByCategory } from '../services/categoryService';
 import { deleteQuestion, updateQuestion } from '../services/questionService';
 import QuestionDetailCard from '../components/QuestionDetailCard';
@@ -30,15 +16,8 @@ const PAGE_SIZE = 20; // 每页加载的题目数量
 const CategoryDetailPage = () => {
   const { categoryId } = useParams();
   const navigate = useNavigate();
-  
-  /**
-   * ==================== Query Client 实例 ====================
-   * 作用：可以手动使查询失效、设置查询数据、获取查询数据等
-   * 用于在组件中手动控制缓存和数据同步
-   */
   const queryClient = useQueryClient();
   
-  // 组件状态管理
   const [category, setCategory] = useState(null);
   const [allCategories, setAllCategories] = useState([]);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
@@ -127,26 +106,7 @@ const CategoryDetailPage = () => {
     }
   };
 
-  /**
-   * ==================== 无限滚动查询配置 ====================
-   * useInfiniteQuery: 专门用于处理分页和无限滚动场景的 Hook
-   * 
-   * 参数说明：
-   * - queryKey: 查询的唯一标识符数组，当 categoryId 或 sortBy 变化时会重新获取数据
-   * - queryFn: 执行数据获取的函数，接收包含 pageParam 的参数对象
-   * - getNextPageParam: 根据上一页数据计算下一页的参数
-   * - enabled: 控制查询是否启用，需要 categoryId 和 currentUser 都存在
-   * - staleTime: 数据在多久内被认为是新鲜的（不会重新获取）
-   * 
-   * 返回值说明：
-   * - data: 包含所有页面数据的对象，结构为 { pages: [...], pageParams: [...] }
-   * - fetchNextPage: 函数，用于加载下一页数据
-   * - hasNextPage: 布尔值，表示是否还有更多数据可以加载
-   * - isFetchingNextPage: 布尔值，表示是否正在加载下一页
-   * - isLoading: 布尔值，表示是否正在首次加载
-   * - error: 错误对象，如果查询失败则包含错误信息
-   * - refetch: 函数，用于手动重新获取所有数据
-   */
+  // 无限滚动查询
   const {
     data,
     fetchNextPage,
@@ -156,38 +116,30 @@ const CategoryDetailPage = () => {
     error,
     refetch
   } = useInfiniteQuery({
-    queryKey: ['questions', categoryId, sortBy], // 查询键：当这些值变化时重新获取
+    queryKey: ['questions', categoryId, sortBy],
     queryFn: async ({ pageParam = 0 }) => {
-      // pageParam 是当前页码，从0开始
       const result = await getQuestionsByCategory(categoryId, {
-        page: pageParam + 1, // 转换为1开始的页码
+        page: pageParam + 1,
         pageSize: PAGE_SIZE,
         sortBy,
         sortOrder: 'desc'
       });
       return {
         questions: result.data,
-        // 如果返回的数据量等于页面大小，说明可能还有更多数据
         nextPage: result.data.length === PAGE_SIZE ? pageParam + 1 : undefined
       };
     },
-    getNextPageParam: (lastPage) => lastPage.nextPage, // 计算下一页参数
-    enabled: !!categoryId && !!currentUser, // 只有 categoryId 和用户存在时才启用查询
-    staleTime: 1000 * 60 * 5, // 数据在5分钟内被认为是新鲜的
+    getNextPageParam: (lastPage) => lastPage.nextPage,
+    enabled: !!categoryId && !!currentUser,
+    staleTime: 1000 * 60 * 5,
   });
 
-  /**
-   * ==================== 数据处理 ====================
-   * useMemo: 缓存计算结果，避免不必要的重复计算
-   * 当依赖项变化时才重新计算，优化性能
-   */
-  
-  // 扁平化所有页面的题目：将分页数据转换为平铺的题目数组
+  // 扁平化所有页面的题目
   const allQuestions = useMemo(() => {
     return data?.pages.flatMap(page => page.questions) || [];
   }, [data]);
 
-  // 搜索过滤后的题目：根据搜索词过滤题目
+  // 搜索过滤后的题目
   const filteredQuestions = useMemo(() => {
     if (!searchTerm) return allQuestions;
     
@@ -202,7 +154,7 @@ const CategoryDetailPage = () => {
     );
   }, [allQuestions, searchTerm]);
 
-  // 排序后的题目：根据选择的排序方式对题目进行排序
+  // 排序后的题目
   const sortedQuestions = useMemo(() => {
     return [...filteredQuestions].sort((a, b) => {
       switch (sortBy) {
@@ -223,44 +175,22 @@ const CategoryDetailPage = () => {
     });
   }, [filteredQuestions, sortBy]);
 
-  /**
-   * ==================== React Virtual 虚拟化配置 ====================
-   * useVirtualizer: 核心虚拟化 Hook，用于处理大量数据的渲染优化
-   * 原理：只渲染可见区域的元素，大幅提升长列表性能
-   * 
-   * 参数说明：
-   * - count: 虚拟化项目的总数
-   * - getScrollElement: 获取滚动容器的函数
-   * - estimateSize: 估算每个项目高度的函数
-   * - overscan: 预渲染的项目数量，用于平滑滚动
-   * 
-   * 返回值说明：
-   * - virtualItems: 当前应该渲染的虚拟项目数组
-   * - getTotalSize: 获取虚拟化容器的总高度
-   * - measureElement: 用于测量元素实际高度的 ref 函数
-   */
+  // React Virtual 虚拟化配置
   const virtualizer = useVirtualizer({
-    count: sortedQuestions.length, // 虚拟化项目的总数
-    getScrollElement: () => document.querySelector('.questions-container'), // 滚动容器
-    estimateSize: () => viewMode === 'grid' ? 200 : 120, // 根据视图模式估算项目高度
-    overscan: 10, // 预渲染10个项目，确保滚动时不会出现空白
+    count: sortedQuestions.length,
+    getScrollElement: () => document.querySelector('.questions-container'),
+    estimateSize: () => viewMode === 'grid' ? 200 : 120,
+    overscan: 10,
   });
 
-  /**
-   * ==================== 无限滚动逻辑 ====================
-   * useCallback: 缓存函数，避免不必要的重新创建
-   * 当滚动到底部时自动加载更多数据
-   */
+  // 滚动到底部时加载更多
   const handleScroll = useCallback(() => {
     const container = document.querySelector('.questions-container');
     if (!container) return;
 
     const { scrollTop, scrollHeight, clientHeight } = container;
-    // 检查是否滚动到底部（距离底部小于100px）
-    if (scrollHeight - scrollTop - clientHeight < 100 && 
-        hasNextPage && 
-        !isFetchingNextPage) {
-      fetchNextPage(); // 触发加载下一页
+    if (scrollHeight - scrollTop - clientHeight < 100 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
@@ -273,22 +203,10 @@ const CategoryDetailPage = () => {
     }
   }, [handleScroll]);
 
-  /**
-   * ==================== TanStack Query Mutation 配置 ====================
-   * useMutation: 用于处理数据修改操作（增删改）
-   * 提供乐观更新、错误重试、自动缓存失效等功能
-   */
-
-  /**
-   * 删除题目 Mutation：
-   * - mutationFn: 执行删除操作的函数
-   * - onSuccess: 删除成功后的回调，使相关查询失效以更新UI
-   * - onError: 删除失败后的错误处理
-   */
+  // 删除题目 mutation
   const deleteQuestionMutation = useMutation({
     mutationFn: deleteQuestion,
     onSuccess: () => {
-      // 使 questions 查询失效，触发重新获取以更新UI
       queryClient.invalidateQueries(['questions', categoryId]);
       setSyncMessage('题目删除成功');
       setTimeout(() => setSyncMessage(''), 3000);
@@ -299,16 +217,10 @@ const CategoryDetailPage = () => {
     }
   });
 
-  /**
-   * 更新题目 Mutation：
-   * - mutationFn: 接收参数并执行更新操作的函数
-   * - onSuccess: 更新成功后使查询失效，确保数据一致性
-   * - onError: 更新失败后抛出错误
-   */
+  // 更新题目 mutation
   const updateQuestionMutation = useMutation({
     mutationFn: ({ questionId, data }) => updateQuestion(questionId, data),
     onSuccess: () => {
-      // 使 questions 查询失效，确保UI显示最新数据
       queryClient.invalidateQueries(['questions', categoryId]);
     },
     onError: (error) => {
@@ -322,7 +234,6 @@ const CategoryDetailPage = () => {
     const currentCategory = category;
     
     if (oldCategoryId === currentCategory.id) {
-      // 当题目从当前分类移出时，使查询失效以更新列表
       queryClient.invalidateQueries(['questions', categoryId]);
       
       setExpandedQuestions(prev => {
@@ -392,7 +303,6 @@ const CategoryDetailPage = () => {
       return;
     }
 
-    // 使用 mutation 执行删除操作
     deleteQuestionMutation.mutate(questionId);
     
     setExpandedQuestions(prev => {
@@ -409,7 +319,6 @@ const CategoryDetailPage = () => {
     }
 
     try {
-      // 使用 mutation 执行更新操作，mutateAsync 返回 Promise
       await updateQuestionMutation.mutateAsync({
         questionId,
         data: { [field]: value }
@@ -425,7 +334,7 @@ const CategoryDetailPage = () => {
   };
 
   const handleRetry = () => {
-    refetch(); // 手动重新获取数据
+    refetch();
   };
 
   // 拖拽相关函数
@@ -465,7 +374,6 @@ const CategoryDetailPage = () => {
       newQuestions.splice(toIndex, 0, movedQuestion);
       
       try {
-        // 使用 mutation 保存排序结果
         await updateQuestionMutation.mutateAsync({
           questionId: movedQuestion.id,
           data: { appearanceLevel: movedQuestion.appearanceLevel }
@@ -473,7 +381,7 @@ const CategoryDetailPage = () => {
         console.log('排序保存成功');
       } catch (error) {
         console.error('保存排序失败:', error);
-        refetch(); // 如果保存失败，重新获取数据恢复状态
+        refetch();
       }
     }
     
@@ -645,7 +553,8 @@ const CategoryDetailPage = () => {
                   <option value="difficulty">难度等级</option>
                 </select>
               </div>
-
+              
+            {/*  网格模式 暂时取消
               <div className="controls-group">
                 <label>视图模式</label>
                 <div className="view-toggle">
@@ -663,6 +572,7 @@ const CategoryDetailPage = () => {
                   </button>
                 </div>
               </div>
+            */}
 
               <div className="controls-group">
                 <label>批量操作</label>
@@ -746,11 +656,7 @@ const CategoryDetailPage = () => {
                 )}
               </div>
 
-              {/**
-               * ==================== 虚拟化列表渲染 ====================
-               * 虚拟化容器：固定高度，启用滚动
-               * 关键点：容器必须有固定的高度和 overflow: auto
-               */}
+              {/* 虚拟化题目列表 */}
               <div 
                 className={`questions-container ${viewMode}`}
                 style={{ 
@@ -759,11 +665,6 @@ const CategoryDetailPage = () => {
                   position: 'relative'
                 }}
               >
-                {/**
-                 * 虚拟化包装器：根据总高度创建占位空间
-                 * virtualizer.getTotalSize() 计算所有项目总高度
-                 * 这个div的作用是撑开滚动容器，让滚动条正常工作
-                 */}
                 <div
                   style={{
                     height: `${virtualizer.getTotalSize()}px`,
@@ -771,12 +672,6 @@ const CategoryDetailPage = () => {
                     position: 'relative',
                   }}
                 >
-                  {/**
-                   * 渲染虚拟化项目：
-                   * virtualizer.getVirtualItems() 返回当前需要渲染的项目
-                   * 每个项目都通过绝对定位放置在正确的位置
-                   * 只有这些项目会被实际渲染到DOM中
-                   */}
                   {virtualizer.getVirtualItems().map((virtualItem) => {
                     const question = sortedQuestions[virtualItem.index];
                     
@@ -784,25 +679,12 @@ const CategoryDetailPage = () => {
                       <div
                         key={question.id}
                         data-index={virtualItem.index}
-                        /**
-                         * ==================== 元素测量 ====================
-                         * virtualizer.measureElement: 用于测量元素实际高度
-                         * 虚拟化器会自动调用这个ref来获取元素的真实尺寸
-                         * 这对于动态高度的项目特别重要
-                         */
                         ref={virtualizer.measureElement}
                         style={{
-                          position: 'absolute',
+                          position: "absolute",
                           top: 0,
                           left: 0,
-                          width: '100%',
-                          /**
-                           * ==================== 虚拟定位 ====================
-                           * translateY(${virtualItem.start}px): 将元素定位到正确的位置
-                           * virtualItem.start: 元素在虚拟列表中的起始位置
-                           * virtualItem.end: 元素在虚拟列表中的结束位置
-                           * virtualItem.size: 元素的估算尺寸
-                           */
+                          width: "100%",
                           transform: `translateY(${virtualItem.start}px)`,
                         }}
                       >
@@ -823,13 +705,17 @@ const CategoryDetailPage = () => {
                           onDrop={(e) => handleDrop(e, question.id)}
                           onDragEnd={handleDragEnd}
                           canDrag={expandedQuestions.size === 0}
+                          showQuestionForm={showQuestionForm}
+                          setShowQuestionForm={setShowQuestionForm}
+                          editingQuestion={editingQuestion}
+                          setEditingQuestion={setEditingQuestion}
                         />
                       </div>
                     );
                   })}
                 </div>
 
-                {/* 加载更多指示器：显示加载状态 */}
+                {/* 加载更多指示器 */}
                 {isFetchingNextPage && (
                   <div className="loading-more">
                     <div className="modern-spinner small"></div>
@@ -842,27 +728,39 @@ const CategoryDetailPage = () => {
         </div>
       </section>
 
-      {/* 添加/编辑题目弹窗 */}
+      {/* 在虚拟化容器之外渲染编辑表单 - 关键修改 */}
       {showQuestionForm && (
-        <QuestionForm
-          question={editingQuestion}
-          onSave={() => {
-            setShowQuestionForm(false);
-            setEditingQuestion(null);
-            /**
-             * ==================== 缓存失效策略 ====================
-             * 保存成功后使查询失效，重新获取最新数据
-             * 确保UI显示的数据与服务器保持一致
-             */
-            queryClient.invalidateQueries(['questions', categoryId]);
+        <div 
+          className="form-modal-overlay"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+            padding: '20px'
           }}
-          onCancel={() => {
-            setShowQuestionForm(false);
-            setEditingQuestion(null);
-          }}
-          defaultCategoryId={categoryId}
-          onCategoryChange={handleQuestionCategoryChange}
-        />
+        >
+          <QuestionForm
+            question={editingQuestion}
+            onSave={() => {
+              setShowQuestionForm(false);
+              setEditingQuestion(null);
+              queryClient.invalidateQueries(['questions', categoryId]);
+            }}
+            onCancel={() => {
+              setShowQuestionForm(false);
+              setEditingQuestion(null);
+            }}
+            defaultCategoryId={categoryId}
+            onCategoryChange={handleQuestionCategoryChange}
+          />
+        </div>
       )}
     </div>
   );
@@ -885,7 +783,11 @@ const QuestionAccordion = ({
   onDragLeave,
   onDrop,
   onDragEnd,
-  canDrag
+  canDrag,
+  showQuestionForm,
+  setShowQuestionForm,
+  editingQuestion,
+  setEditingQuestion
 }) => {
   const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
@@ -1004,10 +906,15 @@ const QuestionAccordion = ({
         <div className="expanded-content">
           <QuestionDetailCard
             question={question}
-            onUpdate={onUpdate}
             onDelete={onDelete}
             onUpdateField={onUpdateField}
             isExpandedView={true}
+            // 传递新的 props
+            onEdit={onEdit}
+            showQuestionForm={showQuestionForm}
+            setShowQuestionForm={setShowQuestionForm}
+            editingQuestion={editingQuestion}
+            setEditingQuestion={setEditingQuestion}
           />
         </div>
       </div>
