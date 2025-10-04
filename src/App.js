@@ -1,6 +1,7 @@
 // App.jsx
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import HomePage from './pages/HomePage';
 import InitPage from './components/InitPage';
 import CategoryDetailPage from './pages/CategoryDetailPage';
@@ -9,8 +10,19 @@ import Navigation from './components/Navigation';
 import AuthModal from './components/AuthModal';
 import UserSettingsModal from './components/UserSettingsModal';
 import ReviewPage from './pages/ReviewPage';
-
 import './App.css';
+
+// 在组件外部创建 QueryClient 实例
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5分钟
+      gcTime: 10 * 60 * 1000, // 缓存时间10分钟
+    },
+  },
+});
 
 function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -52,31 +64,31 @@ function App() {
   };
 
   return (
-    <Router>
-      <Navigation onShowAuthModal={handleShowAuthModal} />
-      
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/init" element={<InitPage />} />
-        <Route path="/category/:categoryId" element={<CategoryDetailPage />} />
-        <Route path="/test" element={<TestPage />} />
-        <Route path="/review" element={<ReviewPage />} />
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <Navigation onShowAuthModal={handleShowAuthModal} />
+        
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/init" element={<InitPage />} />
+          <Route path="/category/:categoryId" element={<CategoryDetailPage />} />
+          <Route path="/test" element={<TestPage />} />
+          <Route path="/review" element={<ReviewPage />} />
+        </Routes>
 
-      </Routes>
+        <AuthModal 
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          defaultTab={authModalTab}
+          onAuthSuccess={handleAuthSuccess}  // 添加成功回调
+        />
 
-
-      <AuthModal 
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        defaultTab={authModalTab}
-        onAuthSuccess={handleAuthSuccess}  // 添加成功回调
-      />
-
-      <UserSettingsModal 
-        isOpen={isUserSettingsOpen}
-        onClose={() => setIsUserSettingsOpen(false)}
-      />
-    </Router>
+        <UserSettingsModal 
+          isOpen={isUserSettingsOpen}
+          onClose={() => setIsUserSettingsOpen(false)}
+        />
+      </Router>
+    </QueryClientProvider>
   );
 }
 

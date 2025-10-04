@@ -377,3 +377,70 @@ export const searchCategories = async (searchTerm, options = {}) => {
     throw new Error(`搜索失败: ${error.message}`);
   }
 };
+
+export const getQuestionsByCategory = async (categoryId, options = {}) => {
+  try {
+    const currentUser = AV.User.current();
+    if (!currentUser) {
+      throw new Error('用户未登录');
+    }
+
+    const { 
+      page = 1, 
+      pageSize = 20,
+      sortBy = 'updatedAt',
+      sortOrder = 'desc'
+    } = options;
+    
+    const categoryPointer = AV.Object.createWithoutData('Category', categoryId);
+    const query = new AV.Query('Question');
+    
+    query.equalTo('category', categoryPointer);
+    query.equalTo('createdBy', currentUser);
+    query.include('category');
+    
+    // 排序
+    if (sortOrder === 'asc') {
+      query.addAscending(sortBy);
+    } else {
+      query.addDescending(sortBy);
+    }
+    
+    // 分页
+    query.limit(pageSize);
+    query.skip((page - 1) * pageSize);
+    
+    const results = await query.find();
+    
+    return {
+      data: results.map(question => {
+        const category = question.get('category');
+        return {
+          id: question.id,
+          title: question.get('title'),
+          detailedAnswer: question.get('detailedAnswer'),
+          oralAnswer: question.get('oralAnswer'),
+          code: question.get('code'),
+          url: question.get('url'),
+          tags: question.get('tags') || [],
+          difficulty: question.get('difficulty'),
+          proficiency: question.get('proficiency'),
+          appearanceLevel: question.get('appearanceLevel') || 50,
+          category: category ? {
+            id: category.id,
+            objectId: category.id,
+            name: category.get('name'),
+            description: category.get('description'),
+            questionCount: category.get('questionCount') || 0
+          } : null,
+          createdAt: question.get('createdAt'),
+          updatedAt: question.get('updatedAt'),
+          lastReviewedAt: question.get('lastReviewedAt')
+        };
+      })
+    };
+  } catch (error) {
+    console.error('获取分类题目失败:', error);
+    throw new Error(`获取题目失败: ${error.message}`);
+  }
+};
