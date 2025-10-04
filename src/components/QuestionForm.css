@@ -405,3 +405,76 @@
       margin-bottom: 20px;
     }
   }
+
+  /* 修复输入框文字颜色 */
+.question-form input[type="text"],
+.question-form input[type="url"],
+.question-form textarea,
+.question-form select {
+  color: #333; /* 深色文字确保可读性 */
+  background-color: #fff; /* 白色背景 */
+  border: 1px solid #ddd;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+  transition: border-color 0.2s ease;
+}
+
+/* 输入框聚焦状态 */
+.question-form input:focus,
+.question-form textarea:focus,
+.question-form select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+/* 占位符文字颜色 */
+.question-form input::placeholder,
+.question-form textarea::placeholder {
+  color: #999;
+  opacity: 1;
+}
+
+/* 错误状态的输入框 */
+.question-form input.error,
+.question-form textarea.error,
+.question-form select.error {
+  border-color: #f44336;
+  background-color: #fff5f5;
+}
+
+/* 代码文本区域特殊样式 */
+.question-form .code-textarea {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: #333;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+}
+
+/* 标签输入框 */
+.tags-input-container input {
+  color: #333 !important;
+  background-color: #fff !important;
+}
+
+/* 确保下拉选择框文字可见 */
+.question-form select {
+  color: #333;
+  background-color: #fff;
+}
+
+/* 滑块标签文字 */
+.slider-labels span {
+  color: #666;
+}
+
+/* 禁用状态的输入框 */
+.question-form input:disabled,
+.question-form textarea:disabled,
+.question-form select:disabled {
+  background-color: #f8f9fa;
+  color: #666;
+  opacity: 0.7;
+}

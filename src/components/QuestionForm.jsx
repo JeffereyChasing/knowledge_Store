@@ -5,7 +5,7 @@ import { getAllCategories } from '../services/categoryService';
 import AV from 'leancloud-storage';
 import './QuestionForm.css';
 
-const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId }) => {
+const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategoryChange }) => {
   const [formData, setFormData] = useState({
     title: '',
     detailedAnswer: '',
@@ -47,7 +47,7 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId }) => {
           difficulty: question.difficulty || DifficultyOptions.MEDIUM,
           proficiency: question.proficiency || ProficiencyOptions.BEGINNER,
           appearanceLevel: question.appearanceLevel || 50,
-          categoryId: question.category?.id || ''
+          categoryId: question.category?.id || ''  // 使用 category.id 而不是 category.objectId
         });
       } else if (defaultCategoryId) {
         setFormData(prev => ({ ...prev, categoryId: defaultCategoryId }));
@@ -199,14 +199,25 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId }) => {
     setLoading(true);
     try {
       if (isEditing) {
+        // 检查类别是否发生了变化
+        const oldCategory = question.category; // 原来的 category 对象
+        const newCategory = categories.find(cat => cat.id === formData.categoryId); // 新的 category 对象
+        const categoryChanged = oldCategory?.id !== newCategory?.id;
+        
         await updateQuestion(question.id, formData);
+        
+        // 如果类别发生了变化，调用回调函数通知父组件
+        if (categoryChanged && onCategoryChange) {
+          onCategoryChange({
+            questionId: question.id,
+            oldCategoryId: oldCategory?.id,
+            newCategoryId: newCategory?.id,
+            question: { ...question, ...formData, category: newCategory }
+          });
+        }
       } else {
-        // 获取类别名称用于显示
-        const category = categories.find(cat => cat.id === formData.categoryId);
-        await createQuestion({
-          ...formData,
-          categoryName: category?.name
-        });
+        // 创建题目时只需要传递 categoryId，questionService 会处理 Pointer 转换
+        await createQuestion(formData);
       }
       onSave();
     } catch (error) {

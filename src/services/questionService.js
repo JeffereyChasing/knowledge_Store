@@ -91,10 +91,18 @@ const BATCH_SIZE = 10; // 批量请求大小
  * 获取分类ID的辅助函数
  */
 const getCategoryId = (category) => {
+  if (category && category.objectId) return category.objectId;
   if (typeof category === 'string') return category;
-  if (category.id) return category.id;
-  if (category.objectId) return category.objectId;
+  if (category && category.id) return category.id;
   return null;
+};
+
+/**
+ * 创建分类 Pointer 对象的辅助函数
+ */
+const createCategoryPointer = (categoryId) => {
+  if (!categoryId) return null;
+  return AV.Object.createWithoutData('Category', categoryId);
 };
 
 /**
@@ -168,10 +176,11 @@ const scheduleBatchUpdate = (category, change) => {
 /**
  * 格式化题目响应
  */
-const formatQuestionResponse = (question, categoryId = null) => {
+const formatQuestionResponse = (question) => {
   const category = question.get('category');
   return {
     id: question.id,
+    objectId: question.id,
     title: question.get('title'),
     detailedAnswer: question.get('detailedAnswer'),
     oralAnswer: question.get('oralAnswer'),
@@ -183,8 +192,11 @@ const formatQuestionResponse = (question, categoryId = null) => {
     appearanceLevel: question.get('appearanceLevel') || 50,
     category: category ? {
       id: category.id,
-      name: category.get('name')
-    } : (categoryId ? { id: categoryId } : null),
+      objectId: category.id,
+      name: category.get('name'),
+      description: category.get('description'),
+      questionCount: category.get('questionCount') || 0
+    } : null,
     createdAt: question.get('createdAt'),
     updatedAt: question.get('updatedAt'),
     lastReviewedAt: question.get('lastReviewedAt')
@@ -216,13 +228,13 @@ export const createQuestion = async (questionData) => {
     question.set('appearanceLevel', questionData.appearanceLevel || 50);
     question.set('createdBy', currentUser);
 
-    // 设置分类
+    // 设置分类 - 使用 Pointer 对象
     if (questionData.categoryId) {
-      const category = AV.Object.createWithoutData('Category', questionData.categoryId);
-      question.set('category', category);
+      const categoryPointer = createCategoryPointer(questionData.categoryId);
+      question.set('category', categoryPointer);
       
       // 延迟更新分类计数
-      scheduleBatchUpdate(category, 1);
+      scheduleBatchUpdate(categoryPointer, 1);
     }
 
     // 设置 ACL 权限
@@ -235,10 +247,12 @@ export const createQuestion = async (questionData) => {
     await question.save();
     
     // 清除相关缓存
-    requestManager.clearCache(`questions-${questionData.categoryId}`);
+    if (questionData.categoryId) {
+      requestManager.clearCache(`questions-${questionData.categoryId}`);
+    }
     requestManager.clearCache('all-questions');
     
-    return formatQuestionResponse(question, questionData.categoryId);
+    return formatQuestionResponse(question);
   } catch (error) {
     console.error('创建题目失败:', error);
     throw error;
@@ -270,11 +284,12 @@ export const getQuestionsByCategory = async (categoryId, options = {}) => {
         tag
       } = options;
       
-      const category = AV.Object.createWithoutData('Category', categoryId);
+      const categoryPointer = createCategoryPointer(categoryId);
       const query = new AV.Query('Question');
       
-      query.equalTo('category', category);
+      query.equalTo('category', categoryPointer);
       query.equalTo('createdBy', currentUser);
+      query.include('category'); // 包含分类信息
       
       // 过滤条件
       if (difficulty) query.equalTo('difficulty', difficulty);
@@ -296,7 +311,7 @@ export const getQuestionsByCategory = async (categoryId, options = {}) => {
       const totalCount = await query.count();
       
       return {
-        data: results.map(result => formatQuestionResponse(result, categoryId)),
+        data: results.map(result => formatQuestionResponse(result)),
         pagination: {
           current: page,
           pageSize,
@@ -315,7 +330,7 @@ export const getQuestionsByCategory = async (categoryId, options = {}) => {
  * 根据ID获取单个题目详情（带缓存）
  */
 export const getQuestionById = async (id) => {
-  return cachedRequest(`question_${id}`, async () => {
+  return requestManager.cachedRequest(`question_${id}`, async () => {
     try {
       const query = new AV.Query('Question');
       query.equalTo('objectId', id);
@@ -327,25 +342,12 @@ export const getQuestionById = async (id) => {
         throw new Error('题目不存在');
       }
       
-      const obj = question.toJSON();
-      return {
-        id: obj.objectId,
-        title: obj.title,
-        difficulty: obj.difficulty,
-        category: obj.category ? {
-          id: obj.category.objectId,
-          name: obj.category.name
-        } : null,
-        tags: obj.tags || [],
-        detailedAnswer: obj.detailedAnswer,
-        createdAt: obj.createdAt,
-        updatedAt: obj.updatedAt
-      };
+      return formatQuestionResponse(question);
     } catch (error) {
       console.error(`获取题目 ${id} 失败:`, error);
       throw error;
     }
-  }, 10 * 60 * 1000); // 缓存10分钟
+  });
 };
 
 /**
@@ -399,6 +401,7 @@ export const deleteQuestion = async (questionId) => {
     const query = new AV.Query('Question');
     query.equalTo('objectId', questionId);
     query.equalTo('createdBy', currentUser);
+    query.include('category');
     const question = await query.first();
     
     if (!question) {
@@ -532,20 +535,58 @@ export const updateQuestion = async (questionId, updateData) => {
     
     const question = AV.Object.createWithoutData('Question', questionId);
     
+    // 记录旧的分类信息
+    let oldCategory = null;
+    if (updateData.categoryId) {
+      const oldQuestion = await new AV.Query('Question')
+        .include('category')
+        .get(questionId);
+      oldCategory = oldQuestion.get('category');
+    }
+    
+    // 设置更新字段
     Object.keys(updateData).forEach(key => {
       if (updateData[key] !== undefined) {
-        question.set(key, updateData[key]);
+        // 如果是 categoryId，转换为 Pointer 对象
+        if (key === 'categoryId') {
+          const categoryPointer = createCategoryPointer(updateData[key]);
+          question.set('category', categoryPointer);
+        } else {
+          question.set(key, updateData[key]);
+        }
       }
     });
     
     const result = await question.save();
     console.log('questionService: 更新成功', result);
     
+    // 如果分类发生变化，更新分类计数
+    if (updateData.categoryId && oldCategory) {
+      const newCategoryId = updateData.categoryId;
+      const oldCategoryId = getCategoryId(oldCategory);
+      
+      if (oldCategoryId !== newCategoryId) {
+        // 减少旧分类的计数
+        if (oldCategoryId) {
+          scheduleBatchUpdate(oldCategoryId, -1);
+        }
+        // 增加新分类的计数
+        if (newCategoryId) {
+          scheduleBatchUpdate(newCategoryId, 1);
+        }
+      }
+    }
+    
     // 清除缓存
     requestManager.clearCache(`question-${questionId}`);
     requestManager.clearCache('all-questions');
     
-    return result;
+    // 重新获取更新后的题目信息
+    const updatedQuestion = await new AV.Query('Question')
+      .include('category')
+      .get(questionId);
+    
+    return formatQuestionResponse(updatedQuestion);
   } catch (error) {
     console.error('questionService: 更新题目失败:', error);
     throw error;
@@ -618,4 +659,4 @@ export const clearAllCache = () => {
 };
 
 // 导出辅助函数
-export { batchUpdateCategoryCounts };
+export { batchUpdateCategoryCounts, createCategoryPointer };

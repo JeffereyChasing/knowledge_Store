@@ -1,7 +1,7 @@
 // pages/CategoryDetailPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { initAV, getCategoryWithQuestions } from '../services/categoryService';
+import { initAV, getCategoryWithQuestions, getAllCategories } from '../services/categoryService';
 import { deleteQuestion, updateQuestion } from '../services/questionService';
 import QuestionDetailCard from '../components/QuestionDetailCard';
 import QuestionForm from '../components/QuestionForm';
@@ -13,17 +13,19 @@ const CategoryDetailPage = () => {
   const navigate = useNavigate();
   const [category, setCategory] = useState(null);
   const [questions, setQuestions] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
   const [expandedQuestions, setExpandedQuestions] = useState(new Set());
   const [viewMode, setViewMode] = useState('accordion');
   const [draggingQuestion, setDraggingQuestion] = useState(null);
   const [dragOverQuestion, setDragOverQuestion] = useState(null);
+  const [syncMessage, setSyncMessage] = useState('');
   
-  // 添加用户状态
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
@@ -37,27 +39,22 @@ const CategoryDetailPage = () => {
     }
   }, [categoryId]);
 
-  // 添加滚动到题目的监听器
   useEffect(() => {
     const handleScrollToQuestion = (event) => {
       const { questionId } = event.detail;
       
-      // 找到对应的题目元素
       const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
       if (questionElement) {
-        // 滚动到题目位置
         questionElement.scrollIntoView({ 
           behavior: 'smooth', 
           block: 'center' 
         });
         
-        // 高亮显示
         questionElement.style.boxShadow = '0 0 0 3px #667eea';
         setTimeout(() => {
           questionElement.style.boxShadow = '';
         }, 2000);
         
-        // 如果题目是折叠状态，自动展开
         if (!expandedQuestions.has(questionId)) {
           toggleQuestion(questionId);
         }
@@ -75,6 +72,7 @@ const CategoryDetailPage = () => {
     try {
       initAV();
       await loadCategoryData();
+      await loadAllCategories();
     } catch (error) {
       console.error('初始化失败:', error);
       setError('初始化失败: ' + error.message);
@@ -102,6 +100,47 @@ const CategoryDetailPage = () => {
     }
   };
 
+  const loadAllCategories = async () => {
+    try {
+      const categoriesData = await getAllCategories();
+      const userCategories = categoriesData.filter(cat => {
+        const createdBy = cat.createdBy;
+        return createdBy && createdBy.id === currentUser?.id;
+      });
+      setAllCategories(userCategories);
+    } catch (error) {
+      console.error('加载所有分类失败:', error);
+    }
+  };
+
+  // 处理题目类别变化
+  const handleQuestionCategoryChange = ({ questionId, oldCategoryId, newCategoryId, question }) => {
+    console.log('题目类别发生变化:', {
+      questionId,
+      oldCategoryId,
+      newCategoryId,
+      currentCategoryId: categoryId
+    });
+  
+    // 使用正确的分类对象进行比较
+    const currentCategory = category; // 当前分类对象
+    
+    // 如果题目从当前分类移出
+    if (oldCategoryId === currentCategory.id) {
+      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      
+      setExpandedQuestions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(questionId);
+        return newSet;
+      });
+      
+      const newCategory = allCategories.find(cat => cat.id === newCategoryId);
+      setSyncMessage(`题目已移动到分类: ${newCategory?.name || '其他分类'}`);
+      setTimeout(() => setSyncMessage(''), 3000);
+    }
+  };
+  console.log(category)
   const toggleQuestion = (questionId) => {
     setExpandedQuestions(prev => {
       const newSet = new Set(prev);
@@ -128,6 +167,16 @@ const CategoryDetailPage = () => {
       alert('请先登录');
       return;
     }
+    setEditingQuestion(null);
+    setShowQuestionForm(true);
+  };
+
+  const handleEditQuestion = (question) => {
+    if (!currentUser) {
+      alert('请先登录');
+      return;
+    }
+    setEditingQuestion(question);
     setShowQuestionForm(true);
   };
 
@@ -157,6 +206,9 @@ const CategoryDetailPage = () => {
       });
       
       await loadCategoryData();
+      
+      setSyncMessage('题目删除成功');
+      setTimeout(() => setSyncMessage(''), 3000);
     } catch (error) {
       console.error('删除题目失败:', error);
       alert('删除失败: ' + error.message);
@@ -219,35 +271,40 @@ const CategoryDetailPage = () => {
     setDragOverQuestion(null);
   };
 
-  const handleDrop = async (e, targetQuestionId) => {
-    if (expandedQuestions.size > 0 || !draggingQuestion) return;
+  // 在 CategoryDetailPage.jsx 中修改 handleDrop 函数
+const handleDrop = async (e, targetQuestionId) => {
+  if (expandedQuestions.size > 0 || !draggingQuestion) return;
+  
+  e.preventDefault();
+  
+  if (draggingQuestion !== targetQuestionId) {
+    const fromIndex = questions.findIndex(q => q.id === draggingQuestion);
+    const toIndex = questions.findIndex(q => q.id === targetQuestionId);
     
-    e.preventDefault();
+    const newQuestions = [...questions];
+    const [movedQuestion] = newQuestions.splice(fromIndex, 1);
+    newQuestions.splice(toIndex, 0, movedQuestion);
     
-    if (draggingQuestion !== targetQuestionId) {
-      const fromIndex = questions.findIndex(q => q.id === draggingQuestion);
-      const toIndex = questions.findIndex(q => q.id === targetQuestionId);
-      
-      const newQuestions = [...questions];
-      const [movedQuestion] = newQuestions.splice(fromIndex, 1);
-      newQuestions.splice(toIndex, 0, movedQuestion);
-      
-      setQuestions(newQuestions);
-      
-      try {
-        await updateQuestion(movedQuestion.id, { 
-          updatedAt: new Date()
-        });
-        console.log('排序保存成功');
-      } catch (error) {
-        console.error('保存排序失败:', error);
-        await loadCategoryData();
-      }
+    setQuestions(newQuestions);
+    
+    try {
+      // 不要设置 updatedAt，或者设置其他字段来触发更新
+      await updateQuestion(movedQuestion.id, { 
+        // 可以设置一个不影响业务逻辑的字段，或者不设置任何字段
+        // 或者重新设置 appearanceLevel 来触发排序
+        appearanceLevel: movedQuestion.appearanceLevel
+      });
+      console.log('排序保存成功');
+    } catch (error) {
+      console.error('保存排序失败:', error);
+      // 如果更新失败，重新加载数据
+      await loadCategoryData();
     }
-    
-    setDraggingQuestion(null);
-    setDragOverQuestion(null);
-  };
+  }
+  
+  setDraggingQuestion(null);
+  setDragOverQuestion(null);
+};
 
   const handleDragEnd = (e) => {
     setDraggingQuestion(null);
@@ -368,10 +425,10 @@ const CategoryDetailPage = () => {
             <div className="category-hero">
               <div className="category-badge">
                 <span className="category-emoji">📚</span>
-                <span className="category-name">123{category.name}</span>
+                <span className="category-name">{category.name}</span>
               </div>
               <div className="user-welcome">
-                <span className="welcome-text">欢迎回来!</span>
+                <span className="welcome-text">欢迎, {currentUser.getUsername()}!</span>
               </div>
               <div className="hero-stats">
                 <div className="stat-item">
@@ -392,6 +449,13 @@ const CategoryDetailPage = () => {
         </div>
       </header>
 
+      {/* 同步消息提示 */}
+      {syncMessage && (
+        <div className="sync-message">
+          {syncMessage}
+        </div>
+      )}
+
       {/* 控制面板 */}
       <section className="control-panel">
         <div className="container">
@@ -406,6 +470,7 @@ const CategoryDetailPage = () => {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="modern-search"
+                  style={{ color: '#333', backgroundColor: '#fff' }}
                 />
                 {searchTerm && (
                   <button 
@@ -426,6 +491,7 @@ const CategoryDetailPage = () => {
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="modern-select"
+                  style={{ color: '#333', backgroundColor: '#fff' }}
                 >
                   <option value="appearanceLevel">出现频率</option>
                   <option value="updatedAt">最近更新</option>
@@ -458,14 +524,14 @@ const CategoryDetailPage = () => {
                 <div className="batch-actions">
                   <button 
                     onClick={expandAllQuestions}
-                    className="action-btn"
+                    className="action-btn expand-btn"
                     disabled={sortedQuestions.length === 0}
                   >
                     📖 展开全部
                   </button>
                   <button 
                     onClick={collapseAllQuestions}
-                    className="action-btn"
+                    className="action-btn collapse-btn"
                     disabled={expandedQuestions.size === 0}
                   >
                     📕 折叠全部
@@ -545,6 +611,7 @@ const CategoryDetailPage = () => {
                     onToggle={() => toggleQuestion(question.id)}
                     onUpdate={handleUpdateQuestion}
                     onDelete={handleDeleteQuestion}
+                    onEdit={handleEditQuestion}
                     onUpdateField={handleUpdateQuestionField}
                     viewMode={viewMode}
                     isDragging={draggingQuestion === question.id}
@@ -563,21 +630,26 @@ const CategoryDetailPage = () => {
         </div>
       </section>
 
-      {/* 添加题目弹窗 */}
+      {/* 添加/编辑题目弹窗 */}
       {showQuestionForm && (
         <QuestionForm
+          question={editingQuestion}
           onSave={() => {
             setShowQuestionForm(false);
+            setEditingQuestion(null);
             loadCategoryData();
           }}
-          onCancel={() => setShowQuestionForm(false)}
+          onCancel={() => {
+            setShowQuestionForm(false);
+            setEditingQuestion(null);
+          }}
           defaultCategoryId={categoryId}
+          onCategoryChange={handleQuestionCategoryChange}
         />
       )}
     </div>
   );
 };
-
 
 const QuestionAccordion = ({ 
   question, 
@@ -586,6 +658,7 @@ const QuestionAccordion = ({
   onToggle, 
   onUpdate, 
   onDelete,
+  onEdit,
   onUpdateField,
   viewMode,
   isDragging,
@@ -635,21 +708,21 @@ const QuestionAccordion = ({
 
   const getProficiencyColor = (proficiency) => {
     switch (proficiency) {
-      case 'beginner': return '#ff6b6b'; // 红色 - 初级
-      case 'intermediate': return '#4ecdc4'; // 青色 - 中级
-      case 'advanced': return '#45b7d1'; // 蓝色 - 高级
-      case 'master': return '#96ceb4'; // 绿色 - 精通
-      default: return '#95a5a6'; // 灰色 - 默认
+      case 'beginner': return '#ff6b6b';
+      case 'intermediate': return '#4ecdc4';
+      case 'advanced': return '#45b7d1';
+      case 'master': return '#96ceb4';
+      default: return '#95a5a6';
     }
   };
 
   const getProficiencyIcon = (proficiency) => {
     switch (proficiency) {
-      case 'beginner': return '🎀'; // 蝴蝶结 - 初级
-      case 'intermediate': return '🎗️'; // 纪念丝带 - 中级
-      case 'advanced': return '🏅'; // 奖章 - 高级
-      case 'master': return '👑'; // 皇冠 - 精通
-      default: return '🎯'; // 靶心 - 默认
+      case 'beginner': return '🎀';
+      case 'intermediate': return '🎗️';
+      case 'advanced': return '🏅';
+      case 'master': return '👑';
+      default: return '🎯';
     }
   };
 
@@ -700,6 +773,14 @@ const QuestionAccordion = ({
           <div className="expanded-title">
             <span className="question-index">#{index + 1}</span>
             <h3>{question.title}</h3>
+          </div>
+          <div className="expanded-actions">
+            <button 
+              onClick={() => onEdit(question)}
+              className="btn-edit"
+            >
+              ✏️ 编辑
+            </button>
           </div>
         </div>
         
@@ -826,7 +907,6 @@ const QuestionAccordion = ({
             </span>
           </div>
           <h3 className="question-title">{question.title}</h3>
-          
           <div className="question-preview">
             {getAnswerPreview()}
           </div>
