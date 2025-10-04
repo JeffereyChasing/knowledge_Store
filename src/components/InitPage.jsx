@@ -260,6 +260,7 @@ const InitPage = () => {
       </section>
 
       {/* Notion 同步功能区 */}
+    
       {activeTab === 'notion' && (
         <section className="notion-section">
           <h2>🔄 Notion 数据同步</h2>

@@ -669,24 +669,7 @@ const HomePage = () => {
               </div>
             </div>
 
-            <div className="sync-section">
-              <button
-                onClick={handleSyncFromNotion}
-                disabled={syncing}
-                className={`sync-button ${syncing ? "syncing" : ""}`}
-              >
-                {syncing ? "🔄 同步中..." : "📥 从Notion导入题目"}
-              </button>
-              {syncMessage && (
-                <div
-                  className={`sync-message ${
-                    syncMessage.includes("失败") ? "error" : "success"
-                  }`}
-                >
-                  {syncMessage}
-                </div>
-              )}
-            </div>
+            
           </div>
         </header>
 
