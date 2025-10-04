@@ -1,6 +1,69 @@
 // services/questionService.js
 import AV from 'leancloud-storage';
 
+// 请求管理工具
+class RequestManager {
+  constructor() {
+    this.pendingRequests = new Map();
+    this.cache = new Map();
+    this.cacheTimeout = 5 * 60 * 1000; // 5分钟缓存
+  }
+
+  // 防抖请求
+  debounce(key, fn, delay = 300) {
+    return new Promise((resolve, reject) => {
+      if (this.pendingRequests.has(key)) {
+        clearTimeout(this.pendingRequests.get(key));
+      }
+
+      const timer = setTimeout(async () => {
+        this.pendingRequests.delete(key);
+        try {
+          const result = await fn();
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      }, delay);
+
+      this.pendingRequests.set(key, timer);
+    });
+  }
+
+  // 缓存请求
+  async cachedRequest(key, fn, useCache = true) {
+    if (useCache) {
+      const cached = this.cache.get(key);
+      if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+        return cached.data;
+      }
+    }
+
+    const result = await fn();
+    
+    if (useCache) {
+      this.cache.set(key, {
+        data: result,
+        timestamp: Date.now()
+      });
+    }
+
+    return result;
+  }
+
+  // 清除缓存
+  clearCache(key = null) {
+    if (key) {
+      this.cache.delete(key);
+    } else {
+      this.cache.clear();
+    }
+  }
+}
+
+// 创建全局请求管理器实例
+export const requestManager = new RequestManager();
+
 /**
  * 难度选项
  */
@@ -20,43 +83,112 @@ export const ProficiencyOptions = {
   MASTER: 'master'
 };
 
+// 请求配置
+const REQUEST_DELAY = 1000; // 1秒延迟
+const BATCH_SIZE = 10; // 批量请求大小
+
 /**
- * 更新分类题目数量的辅助函数
+ * 获取分类ID的辅助函数
  */
-const updateCategoryQuestionCount = async (category, change) => {
+const getCategoryId = (category) => {
+  if (typeof category === 'string') return category;
+  if (category.id) return category.id;
+  if (category.objectId) return category.objectId;
+  return null;
+};
+
+/**
+ * 批量更新分类题目数量的辅助函数
+ */
+const batchUpdateCategoryCounts = async (updates) => {
+  if (updates.length === 0) return;
+
   try {
-    // 如果 category 是 Pointer 对象，需要先获取它的 ID
-    let categoryId;
-    
-    if (typeof category === 'string') {
-      // 如果直接传入的是分类ID
-      categoryId = category;
-    } else if (category.id) {
-      // 如果是 Pointer 对象
-      categoryId = category.id;
-    } else if (category.objectId) {
-      // 如果是 LeanCloud 对象
-      categoryId = category.objectId;
-    } else {
-      console.error('无法识别的分类对象:', category);
-      return;
-    }
-    
-    // 重新获取分类对象以确保数据最新
-    const categoryQuery = new AV.Query('Category');
-    const freshCategory = await categoryQuery.get(categoryId);
-    
-    const currentCount = freshCategory.get('questionCount') || 0;
-    const newCount = Math.max(0, currentCount + change); // 确保不会变成负数
-    
-    freshCategory.set('questionCount', newCount);
-    await freshCategory.save();
-    
-    console.log(`分类 ${freshCategory.get('name')} 题目数量更新: ${currentCount} -> ${newCount}`);
+    // 按分类分组更新
+    const categoryUpdates = {};
+    updates.forEach(({ categoryId, change }) => {
+      if (categoryId && !categoryUpdates[categoryId]) {
+        categoryUpdates[categoryId] = 0;
+      }
+      if (categoryId) {
+        categoryUpdates[categoryId] += change;
+      }
+    });
+
+    // 批量更新分类
+    const updatePromises = Object.entries(categoryUpdates).map(async ([categoryId, totalChange]) => {
+      try {
+        const categoryQuery = new AV.Query('Category');
+        const freshCategory = await categoryQuery.get(categoryId);
+        
+        const currentCount = freshCategory.get('questionCount') || 0;
+        const newCount = Math.max(0, currentCount + totalChange);
+        
+        freshCategory.set('questionCount', newCount);
+        await freshCategory.save();
+        
+        console.log(`分类 ${freshCategory.get('name')} 题目数量批量更新: ${currentCount} -> ${newCount}`);
+      } catch (error) {
+        console.error(`更新分类 ${categoryId} 题目数量失败:`, error);
+      }
+    });
+
+    await Promise.all(updatePromises);
   } catch (error) {
-    console.error('更新分类题目数量失败:', error);
-    // 这里不抛出错误，因为主要操作（创建/删除题目）已经成功
+    console.error('批量更新分类题目数量失败:', error);
   }
+};
+
+// 批量更新队列
+let batchUpdateQueue = [];
+let batchUpdateTimer = null;
+
+/**
+ * 调度批量更新
+ */
+const scheduleBatchUpdate = (category, change) => {
+  const categoryId = getCategoryId(category);
+  if (!categoryId) return;
+
+  batchUpdateQueue.push({ categoryId, change });
+
+  if (batchUpdateTimer) {
+    clearTimeout(batchUpdateTimer);
+  }
+
+  batchUpdateTimer = setTimeout(() => {
+    const updates = [...batchUpdateQueue];
+    batchUpdateQueue = [];
+    batchUpdateTimer = null;
+    
+    batchUpdateCategoryCounts(updates);
+  }, 2000); // 2秒后执行批量更新
+};
+
+/**
+ * 格式化题目响应
+ */
+const formatQuestionResponse = (question, categoryId = null) => {
+  const category = question.get('category');
+  return {
+    id: question.id,
+    title: question.get('title'),
+    detailedAnswer: question.get('detailedAnswer'),
+    oralAnswer: question.get('oralAnswer'),
+    code: question.get('code'),
+    url: question.get('url'),
+    tags: question.get('tags') || [],
+    difficulty: question.get('difficulty'),
+    proficiency: question.get('proficiency'),
+    appearanceLevel: question.get('appearanceLevel') || 50,
+    category: category ? {
+      id: category.id,
+      name: category.get('name')
+    } : (categoryId ? { id: categoryId } : null),
+    createdAt: question.get('createdAt'),
+    updatedAt: question.get('updatedAt'),
+    lastReviewedAt: question.get('lastReviewedAt')
+  };
 };
 
 /**
@@ -72,14 +204,15 @@ export const createQuestion = async (questionData) => {
     const Question = AV.Object.extend('Question');
     const question = new Question();
     
-    question.set('title', questionData.title);
+    // 设置题目字段
+    question.set('title', questionData.title || '');
     question.set('detailedAnswer', questionData.detailedAnswer || '');
     question.set('oralAnswer', questionData.oralAnswer || '');
     question.set('code', questionData.code || '');
     question.set('url', questionData.url || '');
     question.set('tags', questionData.tags || []);
-    question.set('difficulty', questionData.difficulty);
-    question.set('proficiency', questionData.proficiency);
+    question.set('difficulty', questionData.difficulty || DifficultyOptions.MEDIUM);
+    question.set('proficiency', questionData.proficiency || ProficiencyOptions.BEGINNER);
     question.set('appearanceLevel', questionData.appearanceLevel || 50);
     question.set('createdBy', currentUser);
 
@@ -88,8 +221,8 @@ export const createQuestion = async (questionData) => {
       const category = AV.Object.createWithoutData('Category', questionData.categoryId);
       question.set('category', category);
       
-      // 更新分类的题目数量缓存
-      await updateCategoryQuestionCount(category, 1);
+      // 延迟更新分类计数
+      scheduleBatchUpdate(category, 1);
     }
 
     // 设置 ACL 权限
@@ -101,24 +234,11 @@ export const createQuestion = async (questionData) => {
 
     await question.save();
     
-    return {
-      id: question.id,
-      title: question.get('title'),
-      detailedAnswer: question.get('detailedAnswer'),
-      oralAnswer: question.get('oralAnswer'),
-      code: question.get('code'),
-      url: question.get('url'),
-      tags: question.get('tags'),
-      difficulty: question.get('difficulty'),
-      proficiency: question.get('proficiency'),
-      appearanceLevel: question.get('appearanceLevel'),
-      category: questionData.categoryId ? {
-        id: questionData.categoryId,
-        name: questionData.categoryName
-      } : null,
-      createdAt: question.get('createdAt'),
-      updatedAt: question.get('updatedAt')
-    };
+    // 清除相关缓存
+    requestManager.clearCache(`questions-${questionData.categoryId}`);
+    requestManager.clearCache('all-questions');
+    
+    return formatQuestionResponse(question, questionData.categoryId);
   } catch (error) {
     console.error('创建题目失败:', error);
     throw error;
@@ -126,165 +246,143 @@ export const createQuestion = async (questionData) => {
 };
 
 /**
- * 获取类别的题目列表
+ * 获取类别的题目列表（带缓存和防抖）
  */
 export const getQuestionsByCategory = async (categoryId, options = {}) => {
-  try {
-    const currentUser = AV.User.current();
-    if (!currentUser) {
-      throw new Error('用户未登录');
-    }
-
-    const { 
-      page = 1, 
-      pageSize = 10, 
-      sortBy = 'updatedAt',
-      sortOrder = 'desc',
-      difficulty,
-      proficiency,
-      tag
-    } = options;
+  const cacheKey = `questions-${categoryId}-${JSON.stringify(options)}`;
+  
+  return requestManager.cachedRequest(cacheKey, async () => {
+    await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
     
-    const category = AV.Object.createWithoutData('Category', categoryId);
-    const query = new AV.Query('Question');
-    
-    query.equalTo('category', category);
-    query.equalTo('createdBy', currentUser); // 只查询当前用户的题目
-    
-    // 过滤条件
-    if (difficulty) {
-      query.equalTo('difficulty', difficulty);
-    }
-    
-    if (proficiency) {
-      query.equalTo('proficiency', proficiency);
-    }
-    
-    if (tag) {
-      query.containsAll('tags', [tag]);
-    }
-    
-    // 排序
-    if (sortOrder === 'asc') {
-      query.addAscending(sortBy);
-    } else {
-      query.addDescending(sortBy);
-    }
-    
-    // 分页
-    query.limit(pageSize);
-    query.skip((page - 1) * pageSize);
-    
-    // 选择需要的字段 - 包含 appearanceLevel
-    query.select([
-      'title', 
-      'detailedAnswer', 
-      'oralAnswer', 
-      'code', 
-      'url', 
-      'tags', 
-      'difficulty', 
-      'proficiency', 
-      'updatedAt',
-      'appearanceLevel' // 添加 appearanceLevel
-    ]);
-    
-    const results = await query.find();
-    const totalCount = await query.count();
-    
-    return {
-      data: results.map(result => {
-        const category = result.get('category');
-        return {
-          id: result.id,
-          title: result.get('title'),
-          detailedAnswer: result.get('detailedAnswer'),
-          oralAnswer: result.get('oralAnswer'),
-          code: result.get('code'),
-          url: result.get('url'),
-          tags: result.get('tags') || [],
-          difficulty: result.get('difficulty'),
-          proficiency: result.get('proficiency'),
-          appearanceLevel: result.get('appearanceLevel') || 50, // 确保返回 appearanceLevel
-          category: category ? {
-            id: category.id,
-            name: category.get('name')
-          } : null,
-          updatedAt: result.get('updatedAt') || result.createdAt,
-          createdAt: result.createdAt
-        };
-      }),
-      pagination: {
-        current: page,
-        pageSize,
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / pageSize)
+    try {
+      const currentUser = AV.User.current();
+      if (!currentUser) {
+        throw new Error('用户未登录');
       }
-    };
-  } catch (error) {
-    console.error('获取题目列表失败:', error);
-    throw new Error(`获取题目失败: ${error.message}`);
-  }
+
+      const { 
+        page = 1, 
+        pageSize = 10, 
+        sortBy = 'updatedAt',
+        sortOrder = 'desc',
+        difficulty,
+        proficiency,
+        tag
+      } = options;
+      
+      const category = AV.Object.createWithoutData('Category', categoryId);
+      const query = new AV.Query('Question');
+      
+      query.equalTo('category', category);
+      query.equalTo('createdBy', currentUser);
+      
+      // 过滤条件
+      if (difficulty) query.equalTo('difficulty', difficulty);
+      if (proficiency) query.equalTo('proficiency', proficiency);
+      if (tag) query.containsAll('tags', [tag]);
+      
+      // 排序
+      if (sortOrder === 'asc') {
+        query.addAscending(sortBy);
+      } else {
+        query.addDescending(sortBy);
+      }
+      
+      // 分页
+      query.limit(pageSize);
+      query.skip((page - 1) * pageSize);
+      
+      const results = await query.find();
+      const totalCount = await query.count();
+      
+      return {
+        data: results.map(result => formatQuestionResponse(result, categoryId)),
+        pagination: {
+          current: page,
+          pageSize,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / pageSize)
+        }
+      };
+    } catch (error) {
+      console.error('获取题目列表失败:', error);
+      throw new Error(`获取题目失败: ${error.message}`);
+    }
+  });
 };
 
 /**
- * 根据ID获取单个题目详情
+ * 根据ID获取单个题目详情（带缓存）
  */
-export const getQuestionById = async (questionId) => {
-  try {
-    const currentUser = AV.User.current();
-    if (!currentUser) {
-      throw new Error('用户未登录');
+export const getQuestionById = async (id) => {
+  return cachedRequest(`question_${id}`, async () => {
+    try {
+      const query = new AV.Query('Question');
+      query.equalTo('objectId', id);
+      query.include('category');
+      
+      const question = await query.first();
+      
+      if (!question) {
+        throw new Error('题目不存在');
+      }
+      
+      const obj = question.toJSON();
+      return {
+        id: obj.objectId,
+        title: obj.title,
+        difficulty: obj.difficulty,
+        category: obj.category ? {
+          id: obj.category.objectId,
+          name: obj.category.name
+        } : null,
+        tags: obj.tags || [],
+        detailedAnswer: obj.detailedAnswer,
+        createdAt: obj.createdAt,
+        updatedAt: obj.updatedAt
+      };
+    } catch (error) {
+      console.error(`获取题目 ${id} 失败:`, error);
+      throw error;
     }
+  }, 10 * 60 * 1000); // 缓存10分钟
+};
 
-    const query = new AV.Query('Question');
-    query.equalTo('objectId', questionId);
-    query.equalTo('createdBy', currentUser); // 验证用户权限
-    query.include('category');
-    
-    // 选择需要的字段 - 包含 appearanceLevel
-    query.select([
-      'title', 
-      'detailedAnswer', 
-      'oralAnswer', 
-      'code', 
-      'url', 
-      'tags', 
-      'difficulty', 
-      'proficiency', 
-      'appearanceLevel'
-    ]);
-    
-    const question = await query.get(questionId);
-    
-    if (!question) {
-      throw new Error('未找到该题目或无权访问');
-    }
-    
-    const category = question.get('category');
-    
-    return {
-      id: question.id,
-      title: question.get('title'),
-      detailedAnswer: question.get('detailedAnswer'),
-      oralAnswer: question.get('oralAnswer'),
-      code: question.get('code'),
-      url: question.get('url'),
-      tags: question.get('tags') || [],
-      difficulty: question.get('difficulty'),
-      proficiency: question.get('proficiency'),
-      appearanceLevel: question.get('appearanceLevel') || 50, // 确保返回 appearanceLevel
-      category: category ? {
-        id: category.id,
-        name: category.get('name')
-      } : null,
-      updatedAt: question.get('updatedAt') || question.createdAt,
-      createdAt: question.createdAt
-    };
-  } catch (error) {
-    console.error('获取题目详情失败:', error);
-    throw new Error(`获取题目详情失败: ${error.message}`);
+/**
+ * 批量获取题目详情（优化性能）
+ */
+export const getQuestionsBatch = async (questionIds) => {
+  if (!questionIds || questionIds.length === 0) return [];
+
+  // 分批处理，避免过多请求
+  const batches = [];
+  for (let i = 0; i < questionIds.length; i += BATCH_SIZE) {
+    batches.push(questionIds.slice(i, i + BATCH_SIZE));
   }
+
+  const results = [];
+  
+  for (const batch of batches) {
+    await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+    
+    try {
+      const currentUser = AV.User.current();
+      if (!currentUser) continue;
+
+      const query = new AV.Query('Question');
+      query.containedIn('objectId', batch);
+      query.equalTo('createdBy', currentUser);
+      query.include('category');
+      
+      const batchResults = await query.find();
+      results.push(...batchResults.map(q => formatQuestionResponse(q)));
+    } catch (error) {
+      console.error('批量获取题目失败:', error);
+      // 继续处理其他批次
+    }
+  }
+
+  return results;
 };
 
 /**
@@ -312,10 +410,14 @@ export const deleteQuestion = async (questionId) => {
     
     await question.destroy();
     
-    // 更新分类的题目数量缓存
+    // 延迟更新分类计数
     if (category) {
-      await updateCategoryQuestionCount(category, -1);
+      scheduleBatchUpdate(category, -1);
     }
+    
+    // 清除缓存
+    requestManager.clearCache(`question-${questionId}`);
+    requestManager.clearCache('all-questions');
     
     return true;
   } catch (error) {
@@ -328,156 +430,120 @@ export const deleteQuestion = async (questionId) => {
  * 搜索题目
  */
 export const searchQuestions = async (searchTerm, options = {}) => {
-  try {
-    const currentUser = AV.User.current();
-    if (!currentUser) {
-      throw new Error('用户未登录');
-    }
-
-    const { page = 1, pageSize = 10 } = options;
+  const cacheKey = `search-${searchTerm}-${JSON.stringify(options)}`;
+  
+  return requestManager.cachedRequest(cacheKey, async () => {
+    await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
     
-    const titleQuery = new AV.Query('Question');
-    titleQuery.contains('title', searchTerm);
-    titleQuery.equalTo('createdBy', currentUser);
-    
-    const detailedAnswerQuery = new AV.Query('Question');
-    detailedAnswerQuery.contains('detailedAnswer', searchTerm);
-    detailedAnswerQuery.equalTo('createdBy', currentUser);
-    
-    const oralAnswerQuery = new AV.Query('Question');
-    oralAnswerQuery.contains('oralAnswer', searchTerm);
-    oralAnswerQuery.equalTo('createdBy', currentUser);
-    
-    const codeQuery = new AV.Query('Question');
-    codeQuery.contains('code', searchTerm);
-    codeQuery.equalTo('createdBy', currentUser);
-    
-    const tagsQuery = new AV.Query('Question');
-    tagsQuery.containsAll('tags', [searchTerm]);
-    tagsQuery.equalTo('createdBy', currentUser);
-    
-    const query = AV.Query.or(
-      titleQuery, 
-      detailedAnswerQuery, 
-      oralAnswerQuery, 
-      codeQuery, 
-      tagsQuery
-    );
-    
-    query.include('category');
-    // 选择需要的字段 - 包含 appearanceLevel
-    query.select([
-      'title', 
-      'detailedAnswer', 
-      'oralAnswer', 
-      'code', 
-      'url', 
-      'tags', 
-      'difficulty', 
-      'proficiency', 
-      'appearanceLevel'
-    ]);
-    query.addDescending('updatedAt');
-    query.limit(pageSize);
-    query.skip((page - 1) * pageSize);
-    
-    const results = await query.find();
-    const totalCount = await query.count();
-    
-    return {
-      data: results.map(result => {
-        const category = result.get('category');
-        return {
-          id: result.id,
-          title: result.get('title'),
-          detailedAnswer: result.get('detailedAnswer'),
-          oralAnswer: result.get('oralAnswer'),
-          code: result.get('code'),
-          url: result.get('url'),
-          tags: result.get('tags') || [],
-          difficulty: result.get('difficulty'),
-          proficiency: result.get('proficiency'),
-          appearanceLevel: result.get('appearanceLevel') || 50, // 确保返回 appearanceLevel
-          category: category ? {
-            id: category.id,
-            name: category.get('name')
-          } : null,
-          updatedAt: result.get('updatedAt') || result.createdAt,
-          createdAt: result.createdAt
-        };
-      }),
-      pagination: {
-        current: page,
-        pageSize,
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / pageSize)
+    try {
+      const currentUser = AV.User.current();
+      if (!currentUser) {
+        throw new Error('用户未登录');
       }
-    };
-  } catch (error) {
-    console.error('搜索题目失败:', error);
-    throw new Error(`搜索失败: ${error.message}`);
-  }
+
+      const { page = 1, pageSize = 10 } = options;
+      
+      const titleQuery = new AV.Query('Question');
+      titleQuery.contains('title', searchTerm);
+      titleQuery.equalTo('createdBy', currentUser);
+      
+      const detailedAnswerQuery = new AV.Query('Question');
+      detailedAnswerQuery.contains('detailedAnswer', searchTerm);
+      detailedAnswerQuery.equalTo('createdBy', currentUser);
+      
+      const oralAnswerQuery = new AV.Query('Question');
+      oralAnswerQuery.contains('oralAnswer', searchTerm);
+      oralAnswerQuery.equalTo('createdBy', currentUser);
+      
+      const codeQuery = new AV.Query('Question');
+      codeQuery.contains('code', searchTerm);
+      codeQuery.equalTo('createdBy', currentUser);
+      
+      const tagsQuery = new AV.Query('Question');
+      tagsQuery.containsAll('tags', [searchTerm]);
+      tagsQuery.equalTo('createdBy', currentUser);
+      
+      const query = AV.Query.or(
+        titleQuery, 
+        detailedAnswerQuery, 
+        oralAnswerQuery, 
+        codeQuery, 
+        tagsQuery
+      );
+      
+      query.include('category');
+      query.addDescending('updatedAt');
+      query.limit(pageSize);
+      query.skip((page - 1) * pageSize);
+      
+      const results = await query.find();
+      const totalCount = await query.count();
+      
+      return {
+        data: results.map(result => formatQuestionResponse(result)),
+        pagination: {
+          current: page,
+          pageSize,
+          total: totalCount,
+          totalPages: Math.ceil(totalCount / pageSize)
+        }
+      };
+    } catch (error) {
+      console.error('搜索题目失败:', error);
+      throw new Error(`搜索失败: ${error.message}`);
+    }
+  }, false); // 搜索不缓存
 };
 
 /**
- * 获取所有题目
+ * 获取所有题目（带缓存）
  */
 export const getAllQuestions = async () => {
-  try {
-    const currentUser = AV.User.current();
-    if (!currentUser) {
-      throw new Error('用户未登录');
-    }
+  return requestManager.cachedRequest('all-questions', async () => {
+    await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+    
+    try {
+      const currentUser = AV.User.current();
+      if (!currentUser) {
+        throw new Error('用户未登录');
+      }
 
-    const query = new AV.Query('Question');
-    query.equalTo('createdBy', currentUser); // 只查询当前用户的题目
-    query.include('category');
-    query.descending('updatedAt');
-    
-    const questions = await query.find();
-    
-    return questions.map(question => ({
-      id: question.id,
-      title: question.get('title'),
-      detailedAnswer: question.get('detailedAnswer'),
-      oralAnswer: question.get('oralAnswer'),
-      code: question.get('code'),
-      difficulty: question.get('difficulty'),
-      appearanceLevel: question.get('appearanceLevel'),
-      proficiency: question.get('proficiency'),
-      tags: question.get('tags') || [],
-      category: question.get('category') ? {
-        id: question.get('category').id,
-        name: question.get('category').get('name')
-      } : null,
-      createdAt: question.get('createdAt'),
-      updatedAt: question.get('updatedAt')
-    }));
-  } catch (error) {
-    console.error('获取所有题目失败:', error);
-    throw error;
-  }
+      const query = new AV.Query('Question');
+      query.equalTo('createdBy', currentUser);
+      query.include('category');
+      query.descending('updatedAt');
+      
+      const questions = await query.find();
+      
+      return questions.map(question => formatQuestionResponse(question));
+    } catch (error) {
+      console.error('获取所有题目失败:', error);
+      throw error;
+    }
+  });
 };
 
 /**
  * 更新题目
  */
-// 在 questionService.js 中
 export const updateQuestion = async (questionId, updateData) => {
   try {
     console.log('questionService: 更新题目', questionId, updateData);
     
-    // 创建 LeanCloud 对象
     const question = AV.Object.createWithoutData('Question', questionId);
     
-    // 设置更新字段
     Object.keys(updateData).forEach(key => {
-      question.set(key, updateData[key]);
+      if (updateData[key] !== undefined) {
+        question.set(key, updateData[key]);
+      }
     });
     
-    // 保存更新
     const result = await question.save();
     console.log('questionService: 更新成功', result);
+    
+    // 清除缓存
+    requestManager.clearCache(`question-${questionId}`);
+    requestManager.clearCache('all-questions');
     
     return result;
   } catch (error) {
@@ -485,5 +551,71 @@ export const updateQuestion = async (questionId, updateData) => {
     throw error;
   }
 };
-// 导出辅助函数（如果需要）
-export { updateCategoryQuestionCount };
+
+/**
+ * 更新题目复习时间
+ */
+export const updateQuestionReviewTime = async (questionId) => {
+  try {
+    const currentUser = AV.User.current();
+    if (!currentUser) {
+      throw new Error('用户未登录');
+    }
+
+    const question = AV.Object.createWithoutData('Question', questionId);
+    question.set('lastReviewedAt', new Date());
+    
+    const result = await question.save();
+    
+    // 清除缓存
+    requestManager.clearCache(`question-${questionId}`);
+    requestManager.clearCache('all-questions');
+    
+    return result;
+  } catch (error) {
+    console.error('更新题目复习时间失败:', error);
+    throw error;
+  }
+};
+
+/**
+ * 获取需要复习的题目
+ */
+export const getReviewQuestions = async (thresholdDays = 7) => {
+  const cacheKey = `review-questions-${thresholdDays}`;
+  
+  return requestManager.cachedRequest(cacheKey, async () => {
+    try {
+      const currentUser = AV.User.current();
+      if (!currentUser) {
+        throw new Error('用户未登录');
+      }
+
+      const thresholdDate = new Date();
+      thresholdDate.setDate(thresholdDate.getDate() - thresholdDays);
+
+      const query = new AV.Query('Question');
+      query.equalTo('createdBy', currentUser);
+      query.lessThan('lastReviewedAt', thresholdDate);
+      query.include('category');
+      query.addAscending('lastReviewedAt');
+      
+      const questions = await query.find();
+      
+      return questions.map(question => formatQuestionResponse(question));
+    } catch (error) {
+      console.error('获取复习题目失败:', error);
+      throw error;
+    }
+  });
+};
+
+/**
+ * 清除所有缓存
+ */
+export const clearAllCache = () => {
+  requestManager.clearCache();
+};
+
+// 导出辅助函数
+export { batchUpdateCategoryCounts };
