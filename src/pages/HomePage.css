@@ -2944,3 +2944,17 @@
 .search-container {
   display: none; /* 隐藏原有的搜索框 */
 }
+
+/* 使用现有的CSS变量系统 */
+.footer-section {
+  color: var(--text-secondary); /* 使用次要文本颜色 */
+}
+
+.footer-stats .stat-number {
+  color: var(--primary); /* 保持原有的主色调 */
+}
+
+.footer-stats .stat-label {
+  color:white; /* 使用次要文本颜色 */
+  opacity: 0.6; /* 稍微提高一点可读性 */
+}

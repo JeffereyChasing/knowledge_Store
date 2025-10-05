@@ -228,13 +228,10 @@ export const createQuestion = async (questionData) => {
     question.set('appearanceLevel', questionData.appearanceLevel || 50);
     question.set('createdBy', currentUser);
 
-    // 设置分类 - 使用 Pointer 对象
+    // 设置分类
     if (questionData.categoryId) {
       const categoryPointer = createCategoryPointer(questionData.categoryId);
       question.set('category', categoryPointer);
-      
-      // 延迟更新分类计数
-      scheduleBatchUpdate(categoryPointer, 1);
     }
 
     // 设置 ACL 权限
@@ -245,6 +242,11 @@ export const createQuestion = async (questionData) => {
     question.setACL(acl);
 
     await question.save();
+    
+    // 立即更新分类计数
+    if (questionData.categoryId) {
+      await updateCategoryCountImmediately(questionData.categoryId, 1);
+    }
     
     // 清除相关缓存
     if (questionData.categoryId) {
@@ -413,9 +415,9 @@ export const deleteQuestion = async (questionId) => {
     
     await question.destroy();
     
-    // 延迟更新分类计数
+    // 立即更新分类计数
     if (category) {
-      scheduleBatchUpdate(category, -1);
+      await updateCategoryCountImmediately(category, -1);
     }
     
     // 清除缓存
@@ -649,6 +651,34 @@ export const getReviewQuestions = async (thresholdDays = 7) => {
       throw error;
     }
   });
+};
+
+const updateCategoryCountImmediately = async (category, change) => {
+  if (!category) return;
+  
+  const categoryId = getCategoryId(category);
+  if (!categoryId) return;
+
+  try {
+    const categoryQuery = new AV.Query('Category');
+    const freshCategory = await categoryQuery.get(categoryId);
+    
+    const currentCount = freshCategory.get('questionCount') || 0;
+    const newCount = Math.max(0, currentCount + change);
+    
+    freshCategory.set('questionCount', newCount);
+    await freshCategory.save();
+    
+    console.log(`分类 ${freshCategory.get('name')} 题目数量立即更新: ${currentCount} -> ${newCount}`);
+    
+    // 清除相关缓存
+    cacheConfig.categories.data = null;
+    cacheConfig.categories.timestamp = 0;
+    cacheConfig.questionCounts.delete(categoryId);
+    
+  } catch (error) {
+    console.error(`立即更新分类 ${categoryId} 题目数量失败:`, error);
+  }
 };
 
 /**

@@ -1,5 +1,6 @@
+
 // HomePage.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -29,7 +30,6 @@ import CalendarTooltip from "../components/CalendarTooltip";
 import "./HomePage.css";
 import Documents from "../components/Documents";
 import CommunityPage from "../components/community/CommunityPage";
-
 
 // 创建 React Query 客户端
 const queryClient = new QueryClient({
@@ -128,11 +128,11 @@ const HomePage = () => {
   };
 
   // 处理删除分类确认
-  const handleDeleteClick = (category, e) => {
+  const handleDeleteClick = useCallback((category, e) => {
     e.stopPropagation(); // 阻止事件冒泡，避免触发分类卡片点击
     setCategoryToDelete(category);
     setShowDeleteConfirm(true);
-  };
+  }, []);
 
   // 确认删除分类
   const handleConfirmDelete = async () => {
@@ -163,10 +163,10 @@ const HomePage = () => {
   };
 
   // 取消删除
-  const handleCancelDelete = () => {
+  const handleCancelDelete = useCallback(() => {
     setShowDeleteConfirm(false);
     setCategoryToDelete(null);
-  };
+  }, []);
 
   const handleSyncFromNotion = async () => {
     if (!currentUser) {
@@ -284,30 +284,101 @@ const HomePage = () => {
     }
   }, [questions, reviewThreshold]);
 
+  // 优化后的 initializeData 函数
   const initializeData = async () => {
     try {
       initAV();
-      const categoriesData = await getCategories({
-        page: 1,
-        pageSize: 50,
-        sortBy: QueryOptions.SORT_BY_UPDATED_AT,
-        sortOrder: "desc",
+      
+      console.log('🔄 开始加载数据...');
+      
+      // 并行获取分类和题目数据
+      const [categoriesData, questionsData] = await Promise.all([
+        getCategories({
+          page: 1,
+          pageSize: 50,
+          sortBy: QueryOptions.SORT_BY_UPDATED_AT,
+          sortOrder: "desc",
+        }),
+        getAllQuestions()
+      ]);
+
+      console.log('✅ 数据加载完成:', {
+        分类数据: {
+          数量: categoriesData.data.length,
+          详情: categoriesData.data.map(cat => ({
+            id: cat.id,
+            name: cat.name,
+            questionCount: cat.questionCount
+          }))
+        },
+        题目数据: {
+          数量: questionsData.length,
+          分类分布: questionsData.reduce((acc, q) => {
+            const catName = q.category?.name || '未分类';
+            acc[catName] = (acc[catName] || 0) + 1;
+            return acc;
+          }, {})
+        }
       });
 
       setCategories(categoriesData.data);
-
-      const questionsData = await getAllQuestions();
       setQuestions(questionsData);
-
       setLoading(false);
+      
     } catch (err) {
+      console.error('❌ 初始化数据失败:', err);
       setError(err.message);
       setLoading(false);
     }
   };
 
+  // 使用 useMemo 优化计算密集型操作
+  const filteredCategories = useMemo(() => {
+    return categories.filter((category) =>
+      category.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [categories, searchTerm]);
+
+  // 计算准确的分类题目数量统计 - 完全基于 questions 数据
+  const categoryStats = useMemo(() => {
+    if (!categories.length) {
+      return {
+        totalCategories: 0,
+        totalQuestions: 0,
+        categoriesWithQuestions: 0
+      };
+    }
+  
+    // 直接使用服务层返回的分类数据中的 questionCount
+    // 因为服务层会直接查询数据库获取准确的题目数量
+    const totalQuestionsFromCategories = categories.reduce((sum, cat) => sum + (cat.questionCount || 0), 0);
+    
+    // 计算有题目的分类数量
+    const categoriesWithQuestions = categories.filter(cat => (cat.questionCount || 0) > 0).length;
+  
+    // 调试信息 - 对比两种计算方式
+    console.log('📊 统计信息对比:', {
+      分类总数: categories.length,
+      基于分类的题目总数: totalQuestionsFromCategories,
+      基于所有题目的题目总数: questions.length,
+      有题目的分类数: categoriesWithQuestions,
+      各分类题目详情: categories.map(cat => ({
+        分类名称: cat.name,
+        服务层题目数: cat.questionCount,
+        前端计算题目数: questions.filter(q => q.category?.id === cat.id).length
+      }))
+    });
+  
+    return {
+      totalCategories: categories.length,
+      totalQuestions: totalQuestionsFromCategories, // 使用服务层的数据
+      categoriesWithQuestions: categoriesWithQuestions
+    };
+  }, [categories, questions]);
+
+  
   // 获取某一天的题目详情
-  const getDayQuestions = (date) => {
+  const getDayQuestions = useCallback((date) => {
     const dateStr = date.toISOString().split("T")[0];
 
     const dayQuestions = questions.filter((question) => {
@@ -320,20 +391,20 @@ const HomePage = () => {
     return dayQuestions.sort(
       (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
     );
-  };
+  }, [questions]);
 
   // 获取固定颜色
-  const getDayColor = (count) => {
+  const getDayColor = useCallback((count) => {
     if (count === 0) return "#f8f9fa"; // 无题目 - 浅灰色
     if (count <= 1) return "#4CAF50"; // 1题 - 深绿色
     if (count <= 3) return "#8BC34A"; // 2-3题 - 浅绿色
     if (count <= 5) return "#FFC107"; // 4-5题 - 黄色
     if (count <= 8) return "#FF9800"; // 6-8题 - 橙色
     return "#F44336"; // 9题以上 - 红色
-  };
+  }, []);
 
-  // 生成月度日历数据
-  const getMonthlyCalendarData = () => {
+  // 生成月度日历数据 - 使用 useMemo 优化
+  const getMonthlyCalendarData = useCallback(() => {
     const monthStart = new Date(
       selectedMonth.getFullYear(),
       selectedMonth.getMonth(),
@@ -374,10 +445,10 @@ const HomePage = () => {
     }
 
     return calendarData;
-  };
+  }, [selectedMonth, questions, getDayQuestions, getDayColor]);
 
   // 处理日历日期的鼠标悬停
-  const handleDayMouseEnter = (dayData, event) => {
+  const handleDayMouseEnter = useCallback((dayData, event) => {
     setHoveredDay(dayData);
     setTooltipVisible(true);
 
@@ -393,24 +464,24 @@ const HomePage = () => {
     }
 
     setTooltipVisible(true);
-  };
+  }, []);
 
-  const handleDayMouseLeave = () => {
+  const handleDayMouseLeave = useCallback(() => {
     // 延迟隐藏，给用户时间移动到提示框
     setTimeout(() => {
       if (!document.querySelector(".calendar-tooltip:hover")) {
         setTooltipVisible(false);
       }
     }, 100);
-  };
+  }, []);
 
-  const handleTooltipClose = () => {
+  const handleTooltipClose = useCallback(() => {
     setTooltipVisible(false);
     setHoveredDay(null);
-  };
+  }, []);
 
   // 月份导航
-  const navigateMonth = (direction) => {
+  const navigateMonth = useCallback((direction) => {
     const newDate = new Date(selectedMonth);
     if (direction === "prev") {
       newDate.setMonth(newDate.getMonth() - 1);
@@ -418,19 +489,19 @@ const HomePage = () => {
       newDate.setMonth(newDate.getMonth() + 1);
     }
     setSelectedMonth(newDate);
-  };
+  }, [selectedMonth]);
 
-  // 获取月份统计
-  const getMonthStats = () => {
+  // 获取月份统计 - 使用 useMemo 优化
+  const getMonthStats = useCallback(() => {
     const monthData = getMonthlyCalendarData();
     const daysWithQuestions = monthData.filter((day) => day.count > 0).length;
     const totalQuestions = monthData.reduce((sum, day) => sum + day.count, 0);
     const maxDaily = Math.max(...monthData.map((day) => day.count));
 
     return { daysWithQuestions, totalQuestions, maxDaily };
-  };
+  }, [getMonthlyCalendarData]);
 
-  const getCategoryChartData = () => {
+  const getCategoryChartData = useCallback(() => {
     const categoryMap = {};
 
     questions.forEach((question) => {
@@ -446,9 +517,9 @@ const HomePage = () => {
         percentage: ((count / questions.length) * 100).toFixed(1),
       }))
       .sort((a, b) => b.value - a.value);
-  };
+  }, [questions]);
 
-  const getDifficultyData = () => {
+  const getDifficultyData = useCallback(() => {
     const difficultyMap = {};
 
     questions.forEach((question) => {
@@ -461,9 +532,9 @@ const HomePage = () => {
       value: count,
       color: getDifficultyColor(name),
     }));
-  };
+  }, [questions]);
 
-  const getDifficultyColor = (difficulty) => {
+  const getDifficultyColor = useCallback((difficulty) => {
     switch (difficulty) {
       case "easy":
         return "#52c41a";
@@ -474,9 +545,9 @@ const HomePage = () => {
       default:
         return "#666";
     }
-  };
+  }, []);
 
-  const getDifficultyText = (difficulty) => {
+  const getDifficultyText = useCallback((difficulty) => {
     switch (difficulty) {
       case "easy":
         return "简单";
@@ -487,32 +558,28 @@ const HomePage = () => {
       default:
         return "未知";
     }
-  };
+  }, []);
 
-  const getActiveDays = () => {
+  const getActiveDays = useCallback(() => {
     const uniqueDays = new Set(
       questions.map((q) => new Date(q.createdAt).toDateString())
     );
     return uniqueDays.size;
-  };
+  }, [questions]);
 
-  const filteredCategories = categories.filter((category) =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleCategoryClick = (categoryId) => {
+  const handleCategoryClick = useCallback((categoryId) => {
     navigate(`/category/${categoryId}`);
-  };
+  }, [navigate]);
 
-  const handleQuestionClick = (questionId) => {
+  const handleQuestionClick = useCallback((questionId) => {
     // 找到题目对应的分类并跳转
     const question = questions.find((q) => q.id === questionId);
     if (question && question.category) {
       navigate(`/category/${question.category.id}`);
     }
-  };
+  }, [questions, navigate]);
 
-  const formatTime = (date) => {
+  const formatTime = useCallback((date) => {
     if (!date) return "暂无";
     const now = new Date();
     const diffMs = now - new Date(date);
@@ -524,13 +591,13 @@ const HomePage = () => {
     if (diffHours < 24) return `${diffHours}小时前`;
     if (diffDays < 30) return `${diffDays}天前`;
     return new Date(date).toLocaleDateString();
-  };
+  }, []);
 
-  const getProgressWidth = (count) => {
+  const getProgressWidth = useCallback((count) => {
     if (!categories.length) return 0;
     const maxCount = Math.max(...categories.map((c) => c.questionCount || 0));
     return maxCount > 0 ? (count / maxCount) * 100 : 0;
-  };
+  }, [categories]);
 
   const defaultColors = [
     "#ff6b6b",
@@ -544,6 +611,18 @@ const HomePage = () => {
     "#00d2d3",
     "#ff9f43",
   ];
+
+  // 使用 useMemo 缓存计算结果
+  const chartData = useMemo(() => getCategoryChartData(), [getCategoryChartData]);
+  const difficultyData = useMemo(() => getDifficultyData(), [getDifficultyData]);
+  const calendarData = useMemo(() => getMonthlyCalendarData(), [getMonthlyCalendarData]);
+  const activeDays = useMemo(() => getActiveDays(), [getActiveDays]);
+  const monthStats = useMemo(() => getMonthStats(), [getMonthStats]);
+  
+  const monthName = useMemo(() => selectedMonth.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "long",
+  }), [selectedMonth]);
 
   // 用户未登录时的显示
   if (!currentUser) {
@@ -632,16 +711,6 @@ const HomePage = () => {
       </div>
     );
   }
-
-  const chartData = getCategoryChartData();
-  const difficultyData = getDifficultyData();
-  const calendarData = getMonthlyCalendarData();
-  const activeDays = getActiveDays();
-  const monthStats = getMonthStats();
-  const monthName = selectedMonth.toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "long",
-  });
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -768,10 +837,7 @@ const HomePage = () => {
                   <div className="stats">
                     找到 {filteredCategories.length} 个类别
                     {categories.length > 0 &&
-                      ` • 总计 ${categories.reduce(
-                        (sum, cat) => sum + (cat.questionCount || 0),
-                        0
-                      )} 道题目`}
+                      ` • 总计 ${categoryStats.totalQuestions} 道题目`}
                   </div>
                   <button
                     className="add-category-btn"
@@ -915,6 +981,14 @@ const HomePage = () => {
                   <div className="categories-grid">
                     {filteredCategories.map((category, index) => {
                       const color = defaultColors[index % defaultColors.length];
+                      
+                      // 基于 questions 计算该分类的实际题目数量
+                      const actualQuestionCount = questions.filter(q => 
+                        q.category?.id === category.id
+                      ).length;
+                      
+                      // 优先显示实际数量，如果没有则显示服务层数量
+                      const displayCount = actualQuestionCount > 0 ? actualQuestionCount : (category.questionCount || 0);
 
                       return (
                         <div
@@ -938,7 +1012,12 @@ const HomePage = () => {
                                 </p>
                               )}
                               <span className="question-count">
-                                {category.questionCount || 0} 题
+                                {displayCount} 题
+                                {actualQuestionCount !== category.questionCount && (
+                                  <span style={{ fontSize: '10px', color: '#666', marginLeft: '5px' }}>
+                                    (实际: {actualQuestionCount}, 服务: {category.questionCount})
+                                  </span>
+                                )}
                               </span>
                             </div>
                             <button
@@ -1014,14 +1093,14 @@ const HomePage = () => {
                 <div className="modern-stat-card primary">
                   <div className="stat-icon">📚</div>
                   <div className="stat-content">
-                    <div className="stat-number">{categories.length}</div>
+                    <div className="stat-number">{categoryStats.totalCategories}</div>
                     <div className="stat-label">总分类数</div>
                   </div>
                 </div>
                 <div className="modern-stat-card success">
                   <div className="stat-icon">❓</div>
                   <div className="stat-content">
-                    <div className="stat-number">{questions.length}</div>
+                    <div className="stat-number">{categoryStats.totalQuestions}</div>
                     <div className="stat-label">总题目数</div>
                   </div>
                 </div>
@@ -1036,8 +1115,8 @@ const HomePage = () => {
                   <div className="stat-icon">⚡</div>
                   <div className="stat-content">
                     <div className="stat-number">
-                      {questions.length > 0
-                        ? (questions.length / activeDays).toFixed(1)
+                      {categoryStats.totalQuestions > 0
+                        ? (categoryStats.totalQuestions / activeDays).toFixed(1)
                         : 0}
                     </div>
                     <div className="stat-label">日均题目</div>
@@ -1243,26 +1322,40 @@ const HomePage = () => {
           </section>
         )}
 
+        {/* 修复底部统计 */}
         <footer className="footer-section">
           <div className="container">
             <div className="footer-stats">
               <div className="stat-item">
-                <div className="stat-number">{categories.length}</div>
+                <div className="stat-number">{categoryStats.totalCategories}</div>
                 <div className="stat-label">总类别数</div>
               </div>
               <div className="stat-item">
-                <div className="stat-number">{questions.length}</div>
+                <div className="stat-number">{categoryStats.totalQuestions}</div>
                 <div className="stat-label">总题目数</div>
               </div>
               <div className="stat-item">
                 <div className="stat-number">
-                  {
-                    categories.filter((cat) => (cat.questionCount || 0) > 0)
-                      .length
-                  }
+                  {categoryStats.categoriesWithQuestions}
                 </div>
                 <div className="stat-label">有题目的类别</div>
               </div>
+            </div>
+            
+            {/* 强制显示调试信息 */}
+            <div style={{ 
+              fontSize: '12px', 
+              color: '#666', 
+              marginTop: '10px',
+              padding: '10px',
+              backgroundColor: '#f5f5f5',
+              borderRadius: '4px',
+              border: '1px solid #ddd'
+            }}>
+              <strong>实时统计信息:</strong><br/>
+              分类数: {categories.length} | 
+              题目数: {questions.length} | 
+              有题目的分类: {categoryStats.categoriesWithQuestions}
             </div>
           </div>
         </footer>
