@@ -691,3 +691,70 @@ export const getQuestionsByCategory = async (categoryId, options = {}) => {
     throw new Error(`获取题目失败: ${error.message}`);
   }
 };
+
+// services/categoryService.js
+// 在现有方法基础上添加：
+
+// 获取所有题目（分页方式）
+export const getAllQuestionsPaginated = async (options = {}) => {
+  const {
+    page = 0,
+    pageSize = 50,
+    sortBy = 'updatedAt',
+    sortOrder = 'desc'
+  } = options;
+
+  try {
+    const query = new AV.Query('Question');
+    
+    // 包含分类信息
+    query.include('category');
+    
+    // 排序
+    if (sortBy === 'title') {
+      query.addAscending('title');
+    } else if (sortBy === 'difficulty') {
+      query.addAscending('difficulty');
+    } else if (sortBy === 'appearanceLevel') {
+      query.addDescending('appearanceLevel');
+    } else {
+      query.addDescending('updatedAt');
+    }
+    
+    // 分页
+    query.limit(pageSize);
+    query.skip(page * pageSize);
+    
+    const results = await query.find();
+    
+    const questions = results.map(item => ({
+      id: item.id,
+      title: item.get('title'),
+      detailedAnswer: item.get('detailedAnswer'),
+      oralAnswer: item.get('oralAnswer'),
+      code: item.get('code'),
+      difficulty: item.get('difficulty'),
+      proficiency: item.get('proficiency'),
+      appearanceLevel: item.get('appearanceLevel'),
+      tags: item.get('tags') || [],
+      lastReviewedAt: item.get('lastReviewedAt'),
+      createdAt: item.get('createdAt'),
+      updatedAt: item.get('updatedAt'),
+      category: item.get('category') ? {
+        id: item.get('category').id,
+        name: item.get('category').get('name'),
+        description: item.get('category').get('description')
+      } : null
+    }));
+    
+    return {
+      data: questions,
+      total: questions.length,
+      hasMore: questions.length === pageSize
+    };
+  } catch (error) {
+    console.error('获取题目失败:', error);
+    throw error;
+  }
+};
+

@@ -863,8 +863,8 @@
 }
 
 .markdown-image-preview {
-  max-width: 120px;
-  max-height: 120px;
+  max-width:500px;
+  max-height: 500px;
   border-radius: 6px;
   border: 1px solid #e1e5e9;
   cursor: pointer;

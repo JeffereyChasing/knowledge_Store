@@ -503,8 +503,19 @@ export const searchQuestions = async (searchTerm, options = {}) => {
 /**
  * 获取所有题目（带缓存）
  */
-export const getAllQuestions = async () => {
-  return requestManager.cachedRequest('all-questions', async () => {
+// services/questionService.js
+
+/**
+ * 获取所有题目（禁用缓存）- 确保实时数据
+ */
+/**
+ * 获取所有题目（修复分页限制）- 确保获取全部数据
+ */
+export const getAllQuestions = async (useCache = false) => {
+  if (!useCache) {
+    // 清除缓存
+    requestManager.clearCache('all-questions');
+
     await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
     
     try {
@@ -513,18 +524,69 @@ export const getAllQuestions = async () => {
         throw new Error('用户未登录');
       }
 
-      const query = new AV.Query('Question');
-      query.equalTo('createdBy', currentUser);
-      query.include('category');
-      query.descending('updatedAt');
+      const allQuestions = [];
+      let skip = 0;
+      const limit = 100; // LeanCloud 单次查询限制
+      let hasMore = true;
+
+      // 循环获取所有数据
+      while (hasMore) {
+        const query = new AV.Query('Question');
+        query.equalTo('createdBy', currentUser);
+        query.include('category');
+        query.descending('updatedAt');
+        query.limit(limit);
+        query.skip(skip);
+        
+        const batchResults = await query.find();
+        allQuestions.push(...batchResults);
+        
+        // 检查是否还有更多数据
+        hasMore = batchResults.length === limit;
+        skip += limit;
+        
+        console.log(`📦 批量获取题目: 第 ${skip/limit} 批, 获取 ${batchResults.length} 条`);
+      }
+
+      const result = allQuestions.map(question => formatQuestionResponse(question));
       
-      const questions = await query.find();
+      console.log('📊 getAllQuestions 实时查询结果:', {
+        题目总数: result.length,
+        批次: `${skip/limit} 批`,
+        最新题目: result.slice(0, 3).map(q => ({ id: q.id, title: q.title }))
+      });
       
-      return questions.map(question => formatQuestionResponse(question));
+      return result;
     } catch (error) {
       console.error('获取所有题目失败:', error);
       throw error;
     }
+  }
+  
+  // 原有缓存逻辑
+  return requestManager.cachedRequest('all-questions', async () => {
+    // 同样需要修复分页问题
+    const allQuestions = [];
+    let skip = 0;
+    const limit = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      const query = new AV.Query('Question');
+      query.equalTo('createdBy', currentUser);
+      query.include('category');
+      query.descending('updatedAt');
+      query.limit(limit);
+      query.skip(skip);
+      
+      const batchResults = await query.find();
+      allQuestions.push(...batchResults);
+      
+      hasMore = batchResults.length === limit;
+      skip += limit;
+    }
+
+    return allQuestions.map(question => formatQuestionResponse(question));
   });
 };
 

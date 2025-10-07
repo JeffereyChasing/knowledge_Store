@@ -75,6 +75,48 @@ const HomePage = () => {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const calendarRef = useRef(null);
 
+
+  const handleManualRefresh = useCallback(async () => {
+    console.log('🔄 手动刷新数据...');
+    setSyncMessage('刷新数据中...');
+    
+    try {
+      // 清除所有缓存
+      clearAllCache();
+      clearCategoryCache();
+      
+      // 重新加载数据
+      await initializeData();
+      
+      setSyncMessage('数据刷新成功！');
+      setTimeout(() => setSyncMessage(''), 3000);
+    } catch (error) {
+      console.error('刷新数据失败:', error);
+      setSyncMessage('刷新失败: ' + error.message);
+      setTimeout(() => setSyncMessage(''), 5000);
+    }
+  }, []);
+
+   // 添加题目后自动刷新数据
+   useEffect(() => {
+    const handleQuestionCreated = () => {
+      console.log('📝 检测到题目创建，自动刷新数据...');
+      setTimeout(() => {
+        handleManualRefresh();
+      }, 1000);
+    };
+
+    // 监听题目创建事件
+    window.addEventListener('questionCreated', handleQuestionCreated);
+    
+    return () => {
+      window.removeEventListener('questionCreated', handleQuestionCreated);
+    };
+  }, [handleManualRefresh]);
+
+
+
+
   // 检查用户登录状态
   useEffect(() => {
     const user = AV.User.current();
@@ -168,30 +210,7 @@ const HomePage = () => {
     setCategoryToDelete(null);
   }, []);
 
-  const handleSyncFromNotion = async () => {
-    if (!currentUser) {
-      alert("请先登录");
-      return;
-    }
-
-    setSyncing(true);
-    setSyncMessage("开始从Notion导入数据...");
-
-    try {
-      const result = await AV.Cloud.run("syncProblemsFromNotion");
-      setSyncMessage(result.message || "同步成功！");
-
-      setTimeout(() => {
-        reloadData();
-      }, 1000);
-    } catch (error) {
-      console.error("同步失败:", error);
-      setSyncMessage("同步失败: " + (error.message || "请检查网络连接或配置"));
-    } finally {
-      setSyncing(false);
-    }
-  };
-
+ 
   const reloadData = async () => {
     try {
       const categoriesData = await getCategories({
@@ -284,53 +303,44 @@ const HomePage = () => {
     }
   }, [questions, reviewThreshold]);
 
-  // 优化后的 initializeData 函数
-  const initializeData = async () => {
-    try {
-      initAV();
-      
-      console.log('🔄 开始加载数据...');
-      
-      // 并行获取分类和题目数据
-      const [categoriesData, questionsData] = await Promise.all([
-        getCategories({
-          page: 1,
-          pageSize: 50,
-          sortBy: QueryOptions.SORT_BY_UPDATED_AT,
-          sortOrder: "desc",
-        }),
-        getAllQuestions()
-      ]);
 
-      console.log('✅ 数据加载完成:', {
-        分类数据: {
-          数量: categoriesData.data.length,
-          详情: categoriesData.data.map(cat => ({
-            id: cat.id,
-            name: cat.name,
-            questionCount: cat.questionCount
-          }))
-        },
-        题目数据: {
-          数量: questionsData.length,
-          分类分布: questionsData.reduce((acc, q) => {
-            const catName = q.category?.name || '未分类';
-            acc[catName] = (acc[catName] || 0) + 1;
-            return acc;
-          }, {})
-        }
-      });
 
-      setCategories(categoriesData.data);
-      setQuestions(questionsData);
-      setLoading(false);
-      
-    } catch (err) {
-      console.error('❌ 初始化数据失败:', err);
-      setError(err.message);
-      setLoading(false);
-    }
-  };
+// 优化后的 initializeData 函数
+const initializeData = async () => {
+  try {
+    initAV();
+    
+    console.log('🔄 开始加载数据...');
+    
+    // 明确禁用缓存
+    const [categoriesData, questionsData] = await Promise.all([
+      getCategories({
+        page: 1,
+        pageSize: 50,
+        sortBy: QueryOptions.SORT_BY_UPDATED_AT,
+        sortOrder: "desc",
+      }),
+      getAllQuestions(false) // 明确传递 false 禁用缓存
+    ]);
+
+    console.log('✅ 数据加载完成:', {
+      分类数据: categoriesData.data.length,
+      题目数据: questionsData.length,
+      题目详情: questionsData.slice(0, 5).map(q => ({ id: q.id, title: q.title }))
+    });
+    console.log(categoriesData)
+
+    setCategories(categoriesData.data);
+    setQuestions(questionsData);
+    setLoading(false);
+    
+  } catch (err) {
+    console.error('❌ 初始化数据失败:', err);
+    setError(err.message);
+    setLoading(false);
+  }
+};
+
 
   // 使用 useMemo 优化计算密集型操作
   const filteredCategories = useMemo(() => {
@@ -349,29 +359,28 @@ const HomePage = () => {
       };
     }
   
-    // 直接使用服务层返回的分类数据中的 questionCount
-    // 因为服务层会直接查询数据库获取准确的题目数量
     const totalQuestionsFromCategories = categories.reduce((sum, cat) => sum + (cat.questionCount || 0), 0);
-    
-    // 计算有题目的分类数量
     const categoriesWithQuestions = categories.filter(cat => (cat.questionCount || 0) > 0).length;
   
-    // 调试信息 - 对比两种计算方式
-    console.log('📊 统计信息对比:', {
+    // 详细的调试信息
+    console.log('🔍 详细统计信息:', {
       分类总数: categories.length,
       基于分类的题目总数: totalQuestionsFromCategories,
       基于所有题目的题目总数: questions.length,
+      差异: Math.abs(totalQuestionsFromCategories - questions.length),
       有题目的分类数: categoriesWithQuestions,
-      各分类题目详情: categories.map(cat => ({
+      对象:questions,
+      各分类详情: categories.map(cat => ({
         分类名称: cat.name,
         服务层题目数: cat.questionCount,
-        前端计算题目数: questions.filter(q => q.category?.id === cat.id).length
+        前端计算题目数: questions.filter(q => q.category?.id === cat.id).length,
+        是否匹配: cat.questionCount === questions.filter(q => q.category?.id === cat.id).length,
       }))
     });
   
     return {
       totalCategories: categories.length,
-      totalQuestions: totalQuestionsFromCategories, // 使用服务层的数据
+      totalQuestions: totalQuestionsFromCategories,
       categoriesWithQuestions: categoriesWithQuestions
     };
   }, [categories, questions]);
@@ -1012,7 +1021,7 @@ const HomePage = () => {
                                 </p>
                               )}
                               <span className="question-count">
-                                {displayCount} 题
+                              {displayCount}题
                               </span>
                             </div>
                             <button
@@ -1095,7 +1104,7 @@ const HomePage = () => {
                 <div className="modern-stat-card success">
                   <div className="stat-icon">❓</div>
                   <div className="stat-content">
-                    <div className="stat-number">{categoryStats.totalQuestions}</div>
+                    <div className="stat-number">{questions.length}</div>
                     <div className="stat-label">总题目数</div>
                   </div>
                 </div>
@@ -1326,15 +1335,10 @@ const HomePage = () => {
                 <div className="stat-label">总类别数</div>
               </div>
               <div className="stat-item">
-                <div className="stat-number">{categoryStats.totalQuestions}</div>
+                <div className="stat-number">{questions.length}</div>
                 <div className="stat-label">总题目数</div>
               </div>
-              <div className="stat-item">
-                <div className="stat-number">
-                  {categoryStats.categoriesWithQuestions}
-                </div>
-                <div className="stat-label">有题目的类别</div>
-              </div>
+             
             </div>
             
           

@@ -91,10 +91,18 @@ const CategoryDetailPage = () => {
   const initializeData = async () => {
     try {
       initAV();
+      
+      // 串行执行，避免并发请求
       await loadCategoryInfo();
+      await new Promise(resolve => setTimeout(resolve, 300)); // 添加延迟
       await loadAllCategories();
     } catch (error) {
       console.error('初始化失败:', error);
+      // 如果是429错误，显示友好提示
+      if (error.code === 429 || error.message.includes('Too many requests')) {
+        setSyncMessage('请求过于频繁，请稍后重试');
+        setTimeout(() => setSyncMessage(''), 5000);
+      }
     }
   };
 
@@ -119,8 +127,14 @@ const CategoryDetailPage = () => {
       setAllCategories(userCategories);
     } catch (error) {
       console.error('加载所有分类失败:', error);
+      // 处理429错误
+      if (error.code === 429 || error.message.includes('Too many requests')) {
+        setSyncMessage('服务器繁忙，请稍后重试');
+        setTimeout(() => setSyncMessage(''), 5000);
+      }
     }
   };
+
 
   // 修复无限滚动查询
   const {
@@ -180,7 +194,6 @@ const allQuestions = useMemo(() => {
     return acc;
   }, []);
   
-  console.log('去重后题目数量:', uniqueQuestions.length, '原始数量:', questions.length);
   return uniqueQuestions;
 }, [data]);
 
@@ -201,7 +214,6 @@ const filteredQuestions = useMemo(() => {
   // 再次去重确保安全
   const uniqueFiltered = Array.from(new Map(filtered.map(item => [item.id, item])).values());
   
-  console.log('过滤并去重后题目数量:', uniqueFiltered.length);
   return uniqueFiltered;
 }, [allQuestions, searchTerm]);
 
@@ -228,7 +240,6 @@ const sortedQuestions = useMemo(() => {
   // 最终去重检查
   const finalUnique = Array.from(new Map(sorted.map(item => [item.id, item])).values());
   
-  console.log('最终排序去重后题目数量:', finalUnique.length);
   return finalUnique;
 }, [filteredQuestions, sortBy]);
   // React Virtual 虚拟化配置

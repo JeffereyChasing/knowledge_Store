@@ -362,6 +362,9 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
         await createQuestion(formData);
       }
       onSave();
+      window.dispatchEvent(new CustomEvent('questionCreated', {
+        detail: { question: result }
+      }));
     } catch (error) {
       console.error('保存题目失败:', error);
       setErrors({ submit: error.message });
