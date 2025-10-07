@@ -1013,11 +1013,6 @@ const HomePage = () => {
                               )}
                               <span className="question-count">
                                 {displayCount} 题
-                                {actualQuestionCount !== category.questionCount && (
-                                  <span style={{ fontSize: '10px', color: '#666', marginLeft: '5px' }}>
-                                    (实际: {actualQuestionCount}, 服务: {category.questionCount})
-                                  </span>
-                                )}
                               </span>
                             </div>
                             <button

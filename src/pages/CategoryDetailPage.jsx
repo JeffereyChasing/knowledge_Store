@@ -157,12 +157,7 @@ const CategoryDetailPage = () => {
     },
     getNextPageParam: (lastPage, allPages) => {
       const nextPage = lastPage.nextPage;
-      console.log('计算下一页参数:', {
-        lastPageQuestions: lastPage.questions?.length,
-        nextPage,
-        allPagesLength: allPages.length,
-        hasMore: nextPage !== undefined
-      });
+      
       return nextPage;
     },
     enabled: !!categoryId && !!currentUser,
