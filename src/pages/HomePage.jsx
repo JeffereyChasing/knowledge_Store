@@ -1337,21 +1337,7 @@ const HomePage = () => {
               </div>
             </div>
             
-            {/* 强制显示调试信息 */}
-            <div style={{ 
-              fontSize: '12px', 
-              color: '#666', 
-              marginTop: '10px',
-              padding: '10px',
-              backgroundColor: '#f5f5f5',
-              borderRadius: '4px',
-              border: '1px solid #ddd'
-            }}>
-              <strong>实时统计信息:</strong><br/>
-              分类数: {categories.length} | 
-              题目数: {questions.length} | 
-              有题目的分类: {categoryStats.categoriesWithQuestions}
-            </div>
+          
           </div>
         </footer>
       </div>

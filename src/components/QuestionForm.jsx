@@ -1,5 +1,5 @@
 // components/QuestionForm.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createQuestion, updateQuestion, DifficultyOptions, ProficiencyOptions } from '../services/questionService';
 import { getAllCategories } from '../services/categoryService';
 import AV from 'leancloud-storage';
@@ -16,7 +16,8 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
     difficulty: DifficultyOptions.MEDIUM,
     proficiency: ProficiencyOptions.BEGINNER,
     appearanceLevel: 50,
-    categoryId: ''
+    categoryId: '',
+    images: [] // 新增：存储上传的图片信息
   });
 
   const [categories, setCategories] = useState([]);
@@ -25,9 +26,15 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [errors, setErrors] = useState({});
   const [activeAnswerTab, setActiveAnswerTab] = useState('detailed');
+  const [uploadingImages, setUploadingImages] = useState([]); // 新增：上传中的图片
   
   // 添加用户状态
-  const currentUser = AV.User.current()
+  const currentUser = AV.User.current();
+  
+  // 创建 ref 用于文件输入
+  const fileInputRef = useRef(null);
+  const detailedAnswerRef = useRef(null);
+  const oralAnswerRef = useRef(null);
 
   const isEditing = !!question;
 
@@ -47,7 +54,8 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
           difficulty: question.difficulty || DifficultyOptions.MEDIUM,
           proficiency: question.proficiency || ProficiencyOptions.BEGINNER,
           appearanceLevel: question.appearanceLevel || 50,
-          categoryId: question.category?.id || ''  // 使用 category.id 而不是 category.objectId
+          categoryId: question.category?.id || '',
+          images: question.images || [] // 加载已有的图片
         });
       } else if (defaultCategoryId) {
         setFormData(prev => ({ ...prev, categoryId: defaultCategoryId }));
@@ -91,6 +99,140 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
     } finally {
       setLoadingCategories(false);
     }
+  };
+
+  // 新增：处理拖拽事件
+  const handleDragOver = (e, answerType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const textarea = answerType === 'detailed' ? detailedAnswerRef.current : oralAnswerRef.current;
+    if (textarea) {
+      textarea.classList.add('drag-over');
+    }
+  };
+
+  const handleDragLeave = (e, answerType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const textarea = answerType === 'detailed' ? detailedAnswerRef.current : oralAnswerRef.current;
+    if (textarea) {
+      textarea.classList.remove('drag-over');
+    }
+  };
+
+  const handleDrop = (e, answerType) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const textarea = answerType === 'detailed' ? detailedAnswerRef.current : oralAnswerRef.current;
+    if (textarea) {
+      textarea.classList.remove('drag-over');
+    }
+
+    const files = Array.from(e.dataTransfer.files);
+    handleFiles(files, answerType);
+  };
+
+  // 新增：处理文件选择
+  const handleFileSelect = (e, answerType) => {
+    const files = Array.from(e.target.files);
+    handleFiles(files, answerType);
+    // 重置文件输入
+    e.target.value = '';
+  };
+
+  // 新增：处理文件上传
+  const handleFiles = async (files, answerType) => {
+    const imageFiles = files.filter(file => 
+      file.type === 'image/jpeg' || 
+      file.type === 'image/png' || 
+      file.type === 'image/jpg'
+    );
+
+    if (imageFiles.length === 0) {
+      alert('请选择 JPG 或 PNG 格式的图片文件');
+      return;
+    }
+
+    for (const file of imageFiles) {
+      await uploadImage(file, answerType);
+    }
+  };
+
+  // 新增：上传图片到 LeanCloud
+  const uploadImage = async (file, answerType) => {
+    const uploadingId = Date.now().toString();
+    
+    try {
+      // 添加到上传中列表
+      setUploadingImages(prev => [...prev, uploadingId]);
+      
+      // 创建 LeanCloud 文件对象
+      const avFile = new AV.File(file.name, file);
+      
+      // 上传文件
+      const savedFile = await avFile.save();
+      
+      // 创建图片信息对象
+      const imageInfo = {
+        id: uploadingId,
+        objectId: savedFile.id,
+        url: savedFile.url(),
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        answerType: answerType // 标记图片属于哪个答案类型
+      };
+      
+      // 添加到表单数据
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, imageInfo]
+      }));
+      
+      // 插入图片标记到文本区域
+      insertImageMarkdown(imageInfo, answerType);
+      
+    } catch (error) {
+      console.error('图片上传失败:', error);
+      alert(`图片上传失败: ${error.message}`);
+    } finally {
+      // 从上传中列表移除
+      setUploadingImages(prev => prev.filter(id => id !== uploadingId));
+    }
+  };
+
+  // 新增：插入图片 Markdown 到文本区域
+  const insertImageMarkdown = (imageInfo, answerType) => {
+    const markdown = `![${imageInfo.name}](${imageInfo.url})`;
+    const field = answerType === 'detailed' ? 'detailedAnswer' : 'oralAnswer';
+    
+    setFormData(prev => {
+      const currentText = prev[field];
+      const newText = currentText ? `${currentText}\n${markdown}` : markdown;
+      return { ...prev, [field]: newText };
+    });
+  };
+
+  // 新增：手动触发文件选择
+  const triggerFileInput = (answerType) => {
+    if (fileInputRef.current) {
+      fileInputRef.current.setAttribute('data-answer-type', answerType);
+      fileInputRef.current.click();
+    }
+  };
+
+  // 新增：删除图片
+  const removeImage = (imageId) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter(img => img.id !== imageId)
+    }));
+  };
+
+  // 新增：获取指定答案类型的图片
+  const getImagesByAnswerType = (answerType) => {
+    return formData.images.filter(img => img.answerType === answerType);
   };
 
   const validateForm = () => {
@@ -228,6 +370,79 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
     }
   };
 
+  // 新增：渲染答案标签页内容
+  const renderAnswerTab = (type, placeholder, hint) => {
+    const images = getImagesByAnswerType(type);
+    const isUploading = uploadingImages.length > 0;
+    const field = type === 'detailed' ? 'detailedAnswer' : 'oralAnswer';
+    const textareaRef = type === 'detailed' ? detailedAnswerRef : oralAnswerRef;
+    
+    return (
+      <div className="tab-panel">
+        <div 
+          className="answer-textarea-container"
+          onDragOver={(e) => handleDragOver(e, type)}
+          onDragLeave={(e) => handleDragLeave(e, type)}
+          onDrop={(e) => handleDrop(e, type)}
+        >
+          <textarea
+            ref={textareaRef}
+            value={formData[field]}
+            onChange={(e) => handleInputChange(field, e.target.value)}
+            placeholder={placeholder}
+            rows={type === 'detailed' ? '6' : '4'}
+            disabled={loading}
+            className={errors.answer && !formData[field].trim() ? 'error' : ''}
+          />
+          
+          {/* 图片上传提示 */}
+          <div className="upload-hint">
+            <div className="upload-hint-text">
+              💡 支持拖拽 JPG/PNG 图片到此区域，或 
+              <button 
+                type="button" 
+                className="upload-trigger-btn"
+                onClick={() => triggerFileInput(type)}
+                disabled={loading || isUploading}
+              >
+                点击上传
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* 已上传图片预览 */}
+        {images.length > 0 && (
+          <div className="uploaded-images">
+            <div className="images-title">已上传图片 ({images.length}):</div>
+            <div className="images-grid">
+              {images.map((image) => (
+                <div key={image.id} className="image-item">
+                  <img src={image.url} alt={image.name} />
+                  <div className="image-info">
+                    <span className="image-name">{image.name}</span>
+                    <button 
+                      type="button"
+                      className="remove-image-btn"
+                      onClick={() => removeImage(image.id)}
+                      disabled={loading}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="tab-hint">
+          {hint}
+        </div>
+      </div>
+    );
+  };
+
   // 用户未登录时的显示
   if (!currentUser) {
     return (
@@ -322,37 +537,21 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
               </div>
 
               <div className="answer-tab-content">
-                {activeAnswerTab === 'detailed' && (
-                  <div className="tab-panel">
-                    <textarea
-                      value={formData.detailedAnswer}
-                      onChange={(e) => handleInputChange('detailedAnswer', e.target.value)}
-                      placeholder="请输入详细的答案解释，包含技术细节、原理分析等"
-                      rows="6"
-                      disabled={loading}
-                      className={errors.answer && !formData.detailedAnswer.trim() ? 'error' : ''}
-                    />
-                    <div className="tab-hint">
-                      适合记录完整的技术解析和详细说明
-                    </div>
-                  </div>
-                )}
+                {activeAnswerTab === 'detailed' && 
+                  renderAnswerTab(
+                    'detailed', 
+                    '请输入详细的答案解释，包含技术细节、原理分析等', 
+                    '适合记录完整的技术解析和详细说明'
+                  )
+                }
 
-                {activeAnswerTab === 'oral' && (
-                  <div className="tab-panel">
-                    <textarea
-                      value={formData.oralAnswer}
-                      onChange={(e) => handleInputChange('oralAnswer', e.target.value)}
-                      placeholder="请输入简洁的口述版本答案，适合面试场景表达"
-                      rows="4"
-                      disabled={loading}
-                      className={errors.answer && !formData.oralAnswer.trim() ? 'error' : ''}
-                    />
-                    <div className="tab-hint">
-                      适合记录简洁的口头表达版本，便于面试时快速回忆
-                    </div>
-                  </div>
-                )}
+                {activeAnswerTab === 'oral' && 
+                  renderAnswerTab(
+                    'oral', 
+                    '请输入简洁的口述版本答案，适合面试场景表达', 
+                    '适合记录简洁的口头表达版本，便于面试时快速回忆'
+                  )
+                }
               </div>
             </div>
             {errors.answer && <span className="error-message">{errors.answer}</span>}
@@ -571,6 +770,19 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
             </button>
           </div>
         </form>
+
+        {/* 隐藏的文件输入 */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          accept=".jpg,.jpeg,.png"
+          multiple
+          onChange={(e) => {
+            const answerType = e.target.getAttribute('data-answer-type');
+            handleFileSelect(e, answerType);
+          }}
+        />
       </div>
     </div>
   );

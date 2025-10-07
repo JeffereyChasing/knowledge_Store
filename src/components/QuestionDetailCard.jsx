@@ -52,7 +52,7 @@ const QuestionDetailCard = ({
     console.log('localAppearanceLevel 状态变化:', localAppearanceLevel);
   }, [localAppearanceLevel]);
 
-  // 简单的 Markdown 解析函数
+  // 增强的 Markdown 解析函数 - 支持图片预览
   const parseMarkdown = (text) => {
     if (!text || text.trim() === '') {
       return <span className="no-content">暂无内容</span>;
@@ -91,6 +91,31 @@ const QuestionDetailCard = ({
 
       if (line.trim() === '') {
         elements.push(<br key={`br-${index}`} />);
+        return;
+      }
+
+      // 处理图片标记 - 新增：直接渲染为小预览图
+      const imageMatch = line.match(/!\[(.*?)\]\((.*?)\)/);
+      if (imageMatch) {
+        const altText = imageMatch[1];
+        const imageUrl = imageMatch[2];
+        elements.push(
+          <div key={`img-${index}`} className="markdown-image-container">
+            <img 
+              src={imageUrl} 
+              alt={altText} 
+              className="markdown-image-preview"
+              onClick={(e) => {
+                e.stopPropagation();
+                // 点击预览图可以查看大图
+                window.open(imageUrl, '_blank');
+              }}
+            />
+            {altText && altText !== '' && (
+              <div className="image-alt-text">{altText}</div>
+            )}
+          </div>
+        );
         return;
       }
 
@@ -852,7 +877,7 @@ const QuestionDetailCard = ({
             question={editingQuestion}
             onSave={() => {
               setShowQuestionForm(false);
-  setEditingQuestion(null);
+              setEditingQuestion(null);
             }}
             onCancel={() => {
               setShowQuestionForm(false);
