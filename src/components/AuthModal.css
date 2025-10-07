@@ -70,6 +70,7 @@
     display: block;
     margin-bottom: 5px;
     font-weight: bold;
+    color:red
   }
   
   .form-group input {
@@ -257,4 +258,16 @@
   background: #f0f0f0;
   color: #333;
   font-weight: 500;
+}
+
+/* 针对不同类型的输入框 */
+.auth-form input[type="text"],
+.auth-form input[type="email"],
+.auth-form input[type="password"] {
+  color: #000000 !important;
+}
+
+/* 输入时的状态 */
+.auth-form input:focus {
+  color: #000000 !important;
 }

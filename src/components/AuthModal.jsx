@@ -120,7 +120,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login', onAuthSuccess }) => 
           </button>
         </div>
 
-        {/* 第三方登录选项 */}
+        {/* 第三方登录选项 
         <div className="social-auth-section">
           <div className="social-auth-buttons">
             <button 
@@ -150,7 +150,7 @@ const AuthModal = ({ isOpen, onClose, defaultTab = 'login', onAuthSuccess }) => 
             <span>或</span>
           </div>
         </div>
-
+*/}
         {/* 登录表单 */}
         <form 
           className={`auth-form ${activeTab === 'login' ? 'active' : ''}`}

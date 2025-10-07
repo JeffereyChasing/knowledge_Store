@@ -315,7 +315,7 @@ const Navigation = ({ onShowAuthModal }) => {
                 登录
               </button>
               <button 
-                className="auth-btn register-btn"
+                className="auth-btn login-btn"
                 onClick={() => onShowAuthModal('register')}
               >
                 注册
