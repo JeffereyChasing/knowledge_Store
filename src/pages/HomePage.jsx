@@ -197,9 +197,7 @@ const HomePage = () => {
               onClick={() => {
                 cacheService.setCacheLimit(cacheSettings.cacheLimit);
                 setShowCacheSettings(false);
-                setSyncMessage(
-                  `✅ 缓存设置已更新: ${cacheSettings.cacheLimit} 题`
-                );
+               
                 setTimeout(() => setSyncMessage(""), 3000);
               }}
             >
@@ -1734,8 +1732,8 @@ const HomePage = () => {
                 )}
               </p>
               <div className="cache-actions" >
-
-
+  
+  
 </div>
 
             </div>
@@ -1821,6 +1819,21 @@ const HomePage = () => {
                 )}
               </button>
 
+              <button
+                className={`modern-tab ${
+                  activeTab === "community" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("community")}
+              >
+                <span className="tab-icon">👥</span>
+                <span className="tab-text">学习社区</span>
+                {activeTab === "community" && (
+                  <div className="tab-indicator"></div>
+                )}
+              </button>
+
+
+              {/* 缓存状态快速入口 */}
 <button
   className={`modern-tab ${
     activeTab === "cache" ? "active" : ""
@@ -1838,22 +1851,6 @@ const HomePage = () => {
     <div className="tab-indicator"></div>
   )}
 </button>
-
-
-              {/* 缓存状态快速入口 */}
-  {activeTab !== 'cache' && cacheStatus.hasCache && (
-    <div className="cache-quick-access">
-      <button 
-      className={`modern-tab ${
-        activeTab === "community" ? "active" : ""
-      }`}
-        onClick={() => setActiveTab('cache')}
-        
-      >
- <span className="tab-icon">👥</span>
- <span className="tab-text">管理缓存</span>      </button>
-    </div>
-  )}
             </div>
           </div>
         </section>
