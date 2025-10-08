@@ -36,7 +36,7 @@ const CategoryDetailPage = () => {
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('updatedAt');
+  const [sortBy, setSortBy] = useState('createdAt');
   const [expandedQuestions, setExpandedQuestions] = useState(new Set());
   const [viewMode, setViewMode] = useState('accordion');
   const [draggingQuestion, setDraggingQuestion] = useState(null);

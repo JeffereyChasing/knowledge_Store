@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import Chatbox from '../components/Chatbox';
 import {
   getCategories,
   initAV,
@@ -303,6 +304,38 @@ const HomePage = () => {
     }
   }, [questions, reviewThreshold]);
 
+
+const handleChatboxNavigate = (target) => {
+    console.log('导航到:', target);
+    switch (target) {
+      case 'categories':
+        setActiveTab('categories');
+        break;
+      case 'review':
+        setActiveTab('review');
+        break;
+      case 'stats':
+        setActiveTab('stats');
+        break;
+      case 'calendar':
+        setActiveTab('calendar');
+        break;
+      case 'community':
+        setActiveTab('community');
+        break;
+      case 'documents':
+        setActiveTab('documents');
+        break;
+      case 'createCategory':
+        setShowAddCategory(true);
+        break;
+      default:
+        setActiveTab('categories');
+    }
+    
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
 
 // 优化后的 initializeData 函数
@@ -846,7 +879,7 @@ const initializeData = async () => {
                   <div className="stats">
                     找到 {filteredCategories.length} 个类别
                     {categories.length > 0 &&
-                      ` • 总计 ${categoryStats.totalQuestions} 道题目`}
+                      ` • 总计 ${questions.length} 道题目`}
                   </div>
                   <button
                     className="add-category-btn"
@@ -1344,6 +1377,12 @@ const initializeData = async () => {
           
           </div>
         </footer>
+        <Chatbox 
+          onNavigate={handleChatboxNavigate}
+          categories={categories}
+          questions={questions}
+          currentUser={currentUser}
+        />
       </div>
     </QueryClientProvider>
   );
