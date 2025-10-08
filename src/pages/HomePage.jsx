@@ -1,9 +1,14 @@
-
 // HomePage.jsx
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import Chatbox from '../components/Chatbox';
+import Chatbox from "../components/Chatbox";
 import {
   getCategories,
   initAV,
@@ -12,7 +17,11 @@ import {
   deleteCategory,
 } from "../services/categoryService";
 import { getAllQuestions, updateQuestion } from "../services/questionService";
+import { cacheService } from "../services/cacheService"; // 从正确的文件导入
+import { offlineService } from "../services/offlineService"; // 从正确的文件导入
+import OfflineIndicator from "../components/OfflineIndicator";
 import AV from "leancloud-storage";
+import CacheManagementTab from '../components/CacheManagementTab';
 import {
   PieChart,
   Pie,
@@ -42,6 +51,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -76,47 +87,288 @@ const HomePage = () => {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const calendarRef = useRef(null);
 
+  // 新增离线相关状态
+  const [isOnline, setIsOnline] = useState(true);
+  const [cacheStatus, setCacheStatus] = useState({});
+  const [offlineQuestions, setOfflineQuestions] = useState([]);
+  const [showOfflineMode, setShowOfflineMode] = useState(false);
+  const [swStatus, setSwStatus] = useState({
+    supported: false,
+    activated: false,
+    error: null,
+  });
+
+  // 添加状态
+  const [cacheSettings, setCacheSettings] = useState({
+    cacheLimit: cacheService.getCacheLimit(), // 从服务获取当前限制
+    autoCache: true,
+  });
+
+
+
+  
+
+  // 新增：缓存管理函数
+  // 修改预缓存函数
+  const preCacheQuestions = useCallback(async () => {
+    if (!currentUser) return;
+
+    try {
+      console.log("🔄 通过 Service Worker 缓存题目...");
+      setSyncing(true);
+
+      // 设置缓存限制
+      cacheService.setCacheLimit(cacheSettings.cacheLimit);
+
+      const success = await cacheService.cacheQuestions(questions);
+
+      if (success) {
+        // 更新缓存状态
+        const status = await cacheService.getCacheStatus();
+        setCacheStatus(status);
+        setTimeout(() => setSyncMessage(""), 3000);
+      }
+    } catch (error) {
+      console.error("预缓存失败:", error);
+      setSyncMessage("缓存失败: " + error.message);
+    } finally {
+      setSyncing(false);
+    }
+  }, [currentUser, questions, cacheSettings.cacheLimit]);
+
+  // 添加缓存设置对话框
+  const [showCacheSettings, setShowCacheSettings] = useState(false);
+
+  
+  // 缓存设置组件
+  const CacheSettingsModal = () => (
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <div className="modal-header">
+          <h3>📦 离线缓存设置</h3>
+          <button
+            className="close-btn"
+            onClick={() => setShowCacheSettings(false)}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="cache-settings-form">
+          <div className="form-group">
+            <label htmlFor="cacheLimit">
+              缓存题目数量: {cacheSettings.cacheLimit} 题
+            </label>
+            <input
+              id="cacheLimit"
+              type="range"
+              min="10"
+              max="100"
+              step="10"
+              value={cacheSettings.cacheLimit}
+              onChange={(e) =>
+                setCacheSettings((prev) => ({
+                  ...prev,
+                  cacheLimit: parseInt(e.target.value),
+                }))
+              }
+              className="cache-limit-slider"
+            />
+            <div className="range-labels">
+              <span>10题</span>
+              <span>100题</span>
+            </div>
+            <div className="cache-hint">
+              当前配置: 最多缓存 {cacheSettings.cacheLimit} 道题目供离线使用
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button
+              type="button"
+              className="cancel-btn"
+              onClick={() => setShowCacheSettings(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="submit-btn"
+              onClick={() => {
+                cacheService.setCacheLimit(cacheSettings.cacheLimit);
+                setShowCacheSettings(false);
+                setSyncMessage(
+                  `✅ 缓存设置已更新: ${cacheSettings.cacheLimit} 题`
+                );
+                setTimeout(() => setSyncMessage(""), 3000);
+              }}
+            >
+              保存设置
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 新增：加载离线数据
+  const loadOfflineData = useCallback(async () => {
+    try {
+      const cacheData = await cacheService.getCachedQuestions();
+      setOfflineQuestions(cacheData.questions);
+      setShowOfflineMode(true);
+
+      console.log("📦 加载离线数据:", cacheData.questions.length);
+    } catch (error) {
+      console.error("加载离线数据失败:", error);
+    }
+  }, []);
+
+  // 新增：手动缓存功能
+  const handleManualCache = useCallback(async () => {
+    setSyncing(true);
+    setSyncMessage("正在缓存题目数据...");
+
+    try {
+      await preCacheQuestions();
+      setCacheStatus(cacheService.getCacheStatus());
+    } catch (error) {
+      setSyncMessage("缓存失败: " + error.message);
+    } finally {
+      setSyncing(false);
+    }
+  }, [preCacheQuestions]);
+
+  // 新增：网络状态监听
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOfflineMode(false);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      if (cacheService.getCacheStatus().hasCache) {
+        loadOfflineData();
+      }
+    };
+
+    offlineService.addEventListener("online", handleOnline);
+    offlineService.addEventListener("offline", handleOffline);
+
+    // 初始状态
+    setIsOnline(offlineService.isOnlineMode());
+    setCacheStatus(cacheService.getCacheStatus());
+
+    return () => {
+      offlineService.removeEventListener("online", handleOnline);
+      offlineService.removeEventListener("offline", handleOffline);
+    };
+  }, [loadOfflineData]);
+
+  // 在 HomePage.jsx 的 useEffect 中添加
+  useEffect(() => {
+    const user = AV.User.current();
+    setCurrentUser(user);
+
+    if (user) {
+      // 检查是否应该使用离线模式
+      if (offlineService.shouldUseOfflineData()) {
+        console.log("🚀 启动离线模式");
+        setShowOfflineMode(true);
+        loadOfflineData();
+        setLoading(false);
+      } else {
+        initializeData();
+      }
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  // 新增：Service Worker 事件监听
+  useEffect(() => {
+    if (!cacheService.isSupported) return;
+
+    const handleCacheUpdated = (event) => {
+      const { count, timestamp } = event.detail;
+      setSyncMessage(``);
+      setCacheStatus((prev) => ({ ...prev, hasCache: true, count }));
+    };
+
+    const handleSwActivated = (event) => {
+      setSwStatus((prev) => ({
+        ...prev,
+        activated: true,
+        version: event.detail.version,
+      }));
+      console.log("🚀 Service Worker 已激活:", event.detail.version);
+    };
+
+    cacheService.addEventListener("cacheUpdated", handleCacheUpdated);
+    cacheService.addEventListener("swActivated", handleSwActivated);
+
+    // 初始 Service Worker 状态
+    setSwStatus((prev) => ({
+      ...prev,
+      supported: cacheService.isSupported,
+    }));
+
+    return () => {
+      cacheService.removeEventListener("cacheUpdated", handleCacheUpdated);
+      cacheService.removeEventListener("swActivated", handleSwActivated);
+    };
+  }, []);
+
+  // 新增：用户登录后自动缓存
+  useEffect(() => {
+    if (currentUser && questions.length > 0) {
+      // 延迟缓存，避免影响主要功能
+      const timer = setTimeout(() => {
+        preCacheQuestions();
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser, questions, preCacheQuestions]);
 
   const handleManualRefresh = useCallback(async () => {
-    console.log('🔄 手动刷新数据...');
-    setSyncMessage('刷新数据中...');
-    
+    console.log("🔄 手动刷新数据...");
+    setSyncMessage("刷新数据中...");
+
     try {
       // 清除所有缓存
       clearAllCache();
       clearCategoryCache();
-      
+
       // 重新加载数据
       await initializeData();
-      
-      setSyncMessage('数据刷新成功！');
-      setTimeout(() => setSyncMessage(''), 3000);
+
+      setSyncMessage("数据刷新成功！");
+      setTimeout(() => setSyncMessage(""), 3000);
     } catch (error) {
-      console.error('刷新数据失败:', error);
-      setSyncMessage('刷新失败: ' + error.message);
-      setTimeout(() => setSyncMessage(''), 5000);
+      console.error("刷新数据失败:", error);
+      setSyncMessage("刷新失败: " + error.message);
+      setTimeout(() => setSyncMessage(""), 5000);
     }
   }, []);
 
-   // 添加题目后自动刷新数据
-   useEffect(() => {
+  // 添加题目后自动刷新数据
+  useEffect(() => {
     const handleQuestionCreated = () => {
-      console.log('📝 检测到题目创建，自动刷新数据...');
+      console.log("📝 检测到题目创建，自动刷新数据...");
       setTimeout(() => {
         handleManualRefresh();
       }, 1000);
     };
 
     // 监听题目创建事件
-    window.addEventListener('questionCreated', handleQuestionCreated);
-    
+    window.addEventListener("questionCreated", handleQuestionCreated);
+
     return () => {
-      window.removeEventListener('questionCreated', handleQuestionCreated);
+      window.removeEventListener("questionCreated", handleQuestionCreated);
     };
   }, [handleManualRefresh]);
-
-
-
 
   // 检查用户登录状态
   useEffect(() => {
@@ -211,7 +463,6 @@ const HomePage = () => {
     setCategoryToDelete(null);
   }, []);
 
- 
   const reloadData = async () => {
     try {
       const categoriesData = await getCategories({
@@ -274,6 +525,28 @@ const HomePage = () => {
     }
   };
 
+  useEffect(() => {
+    const handleGlobalError = (event) => {
+      if (
+        event.error &&
+        (event.error.message.includes("network") ||
+          event.error.message.includes("offline") ||
+          event.error.message.includes("CORS") ||
+          event.error.message.includes("LeanCloud"))
+      ) {
+        console.log("🌐 捕获到网络错误，切换到离线模式");
+        setShowOfflineMode(true);
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("error", handleGlobalError);
+
+    return () => {
+      window.removeEventListener("error", handleGlobalError);
+    };
+  }, []);
+
   // 计算需要复习的题目 - 修复版本
   useEffect(() => {
     const calculateReviewQuestions = () => {
@@ -304,76 +577,101 @@ const HomePage = () => {
     }
   }, [questions, reviewThreshold]);
 
-
-const handleChatboxNavigate = (target) => {
-    console.log('导航到:', target);
+  const handleChatboxNavigate = (target) => {
+    console.log("导航到:", target);
     switch (target) {
-      case 'categories':
-        setActiveTab('categories');
+      case "categories":
+        setActiveTab("categories");
         break;
-      case 'review':
-        setActiveTab('review');
+      case "review":
+        setActiveTab("review");
         break;
-      case 'stats':
-        setActiveTab('stats');
+      case "stats":
+        setActiveTab("stats");
         break;
-      case 'calendar':
-        setActiveTab('calendar');
+      case "calendar":
+        setActiveTab("calendar");
         break;
-      case 'community':
-        setActiveTab('community');
+      case "community":
+        setActiveTab("community");
         break;
-      case 'documents':
-        setActiveTab('documents');
+      case "documents":
+        setActiveTab("documents");
         break;
-      case 'createCategory':
+      case "createCategory":
         setShowAddCategory(true);
         break;
+      case "cacheQuestions":
+        handleManualCache();
+        break;
+      case "offlineMode":
+        navigate("/offline/questions");
+        break;
       default:
-        setActiveTab('categories');
+        setActiveTab("categories");
     }
-    
+
     // 滚动到顶部
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  // 优化后的 initializeData 函数
+  const initializeData = async () => {
+    try {
+      // 在离线模式下不初始化 LeanCloud
+      if (!offlineService.shouldUseOfflineData()) {
+        initAV();
+      }
 
-// 优化后的 initializeData 函数
-const initializeData = async () => {
-  try {
-    initAV();
-    
-    console.log('🔄 开始加载数据...');
-    
-    // 明确禁用缓存
-    const [categoriesData, questionsData] = await Promise.all([
-      getCategories({
-        page: 1,
-        pageSize: 50,
-        sortBy: QueryOptions.SORT_BY_UPDATED_AT,
-        sortOrder: "desc",
-      }),
-      getAllQuestions(false) // 明确传递 false 禁用缓存
-    ]);
+      console.log("🔄 开始加载数据...");
 
-    console.log('✅ 数据加载完成:', {
-      分类数据: categoriesData.data.length,
-      题目数据: questionsData.length,
-      题目详情: questionsData.slice(0, 5).map(q => ({ id: q.id, title: q.title }))
-    });
-    console.log(categoriesData)
+      // 根据网络状态决定是否使用缓存
+      const [categoriesData, questionsData] = await Promise.all([
+        getCategories({
+          page: 1,
+          pageSize: 50,
+          sortBy: QueryOptions.SORT_BY_UPDATED_AT,
+          sortOrder: "desc",
+        }),
+        getAllQuestions(false),
+      ]);
 
-    setCategories(categoriesData.data);
-    setQuestions(questionsData);
-    setLoading(false);
-    
-  } catch (err) {
-    console.error('❌ 初始化数据失败:', err);
-    setError(err.message);
-    setLoading(false);
-  }
-};
+      console.log("✅ 数据加载完成:", {
+        分类数据: categoriesData.data.length,
+        题目数据: questionsData.length,
+        模式: offlineService.shouldUseOfflineData() ? "离线" : "在线",
+      });
 
+      setCategories(categoriesData.data);
+      setQuestions(questionsData);
+      setLoading(false);
+    } catch (err) {
+      console.error("❌ 初始化数据失败:", err);
+
+      // 如果是网络错误，尝试使用完全离线模式
+      if (err.message.includes("offline") || err.message.includes("network")) {
+        console.log("🌐 网络错误，切换到完全离线模式");
+        setShowOfflineMode(true);
+
+        // 尝试加载离线数据
+        try {
+          const cacheData = await cacheService.getCachedQuestions();
+          setOfflineQuestions(cacheData.questions);
+
+          // 设置空的分类和题目数据
+          setCategories([]);
+          setQuestions([]);
+          setLoading(false);
+          return;
+        } catch (cacheError) {
+          console.error("加载离线数据也失败:", cacheError);
+        }
+      }
+
+      setError(err.message);
+      setLoading(false);
+    }
+  };
 
   // 使用 useMemo 优化计算密集型操作
   const filteredCategories = useMemo(() => {
@@ -388,52 +686,62 @@ const initializeData = async () => {
       return {
         totalCategories: 0,
         totalQuestions: 0,
-        categoriesWithQuestions: 0
+        categoriesWithQuestions: 0,
       };
     }
-  
-    const totalQuestionsFromCategories = categories.reduce((sum, cat) => sum + (cat.questionCount || 0), 0);
-    const categoriesWithQuestions = categories.filter(cat => (cat.questionCount || 0) > 0).length;
-  
+
+    const totalQuestionsFromCategories = categories.reduce(
+      (sum, cat) => sum + (cat.questionCount || 0),
+      0
+    );
+    const categoriesWithQuestions = categories.filter(
+      (cat) => (cat.questionCount || 0) > 0
+    ).length;
+
     // 详细的调试信息
-    console.log('🔍 详细统计信息:', {
+    console.log("🔍 详细统计信息:", {
       分类总数: categories.length,
       基于分类的题目总数: totalQuestionsFromCategories,
       基于所有题目的题目总数: questions.length,
       差异: Math.abs(totalQuestionsFromCategories - questions.length),
       有题目的分类数: categoriesWithQuestions,
-      对象:questions,
-      各分类详情: categories.map(cat => ({
+      对象: questions,
+      各分类详情: categories.map((cat) => ({
         分类名称: cat.name,
         服务层题目数: cat.questionCount,
-        前端计算题目数: questions.filter(q => q.category?.id === cat.id).length,
-        是否匹配: cat.questionCount === questions.filter(q => q.category?.id === cat.id).length,
-      }))
+        前端计算题目数: questions.filter((q) => q.category?.id === cat.id)
+          .length,
+        是否匹配:
+          cat.questionCount ===
+          questions.filter((q) => q.category?.id === cat.id).length,
+      })),
     });
-  
+
     return {
       totalCategories: categories.length,
       totalQuestions: totalQuestionsFromCategories,
-      categoriesWithQuestions: categoriesWithQuestions
+      categoriesWithQuestions: categoriesWithQuestions,
     };
   }, [categories, questions]);
 
-  
   // 获取某一天的题目详情
-  const getDayQuestions = useCallback((date) => {
-    const dateStr = date.toISOString().split("T")[0];
+  const getDayQuestions = useCallback(
+    (date) => {
+      const dateStr = date.toISOString().split("T")[0];
 
-    const dayQuestions = questions.filter((question) => {
-      const questionDate = new Date(question.createdAt);
-      const questionDateStr = questionDate.toISOString().split("T")[0];
-      return questionDateStr === dateStr;
-    });
+      const dayQuestions = questions.filter((question) => {
+        const questionDate = new Date(question.createdAt);
+        const questionDateStr = questionDate.toISOString().split("T")[0];
+        return questionDateStr === dateStr;
+      });
 
-    // 按创建时间排序
-    return dayQuestions.sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    );
-  }, [questions]);
+      // 按创建时间排序
+      return dayQuestions.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+    },
+    [questions]
+  );
 
   // 获取固定颜色
   const getDayColor = useCallback((count) => {
@@ -523,15 +831,18 @@ const initializeData = async () => {
   }, []);
 
   // 月份导航
-  const navigateMonth = useCallback((direction) => {
-    const newDate = new Date(selectedMonth);
-    if (direction === "prev") {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setSelectedMonth(newDate);
-  }, [selectedMonth]);
+  const navigateMonth = useCallback(
+    (direction) => {
+      const newDate = new Date(selectedMonth);
+      if (direction === "prev") {
+        newDate.setMonth(newDate.getMonth() - 1);
+      } else {
+        newDate.setMonth(newDate.getMonth() + 1);
+      }
+      setSelectedMonth(newDate);
+    },
+    [selectedMonth]
+  );
 
   // 获取月份统计 - 使用 useMemo 优化
   const getMonthStats = useCallback(() => {
@@ -609,17 +920,36 @@ const initializeData = async () => {
     return uniqueDays.size;
   }, [questions]);
 
-  const handleCategoryClick = useCallback((categoryId) => {
-    navigate(`/category/${categoryId}`);
-  }, [navigate]);
+  const handleCategoryClick = useCallback(
+    (categoryId) => {
+      // 在离线模式下，阻止跳转到分类页面
+      if (offlineService.shouldUseOfflineData()) {
+        alert("离线模式下无法查看分类详情，请连接网络后重试");
+        return;
+      }
+      navigate(`/category/${categoryId}`);
+    },
+    [navigate]
+  );
 
-  const handleQuestionClick = useCallback((questionId) => {
-    // 找到题目对应的分类并跳转
-    const question = questions.find((q) => q.id === questionId);
-    if (question && question.category) {
-      navigate(`/category/${question.category.id}`);
-    }
-  }, [questions, navigate]);
+  const handleQuestionClick = useCallback(
+    (questionId) => {
+      // 找到题目对应的分类并跳转
+      const question = questions.find((q) => q.id === questionId);
+      if (question && question.category) {
+        navigate(`/category/${question.category.id}`);
+      }
+    },
+    [questions, navigate]
+  );
+
+  // 新增：跳转到离线分类
+  const navigateToOfflineCategory = useCallback((category) => {
+    // 在离线模式下，显示提示信息
+    alert(
+      `离线模式：查看 ${category.name} 分类的 ${category.questions.length} 道题目\n\n请连接网络后查看完整功能`
+    );
+  }, []);
 
   const formatTime = useCallback((date) => {
     if (!date) return "暂无";
@@ -635,11 +965,14 @@ const initializeData = async () => {
     return new Date(date).toLocaleDateString();
   }, []);
 
-  const getProgressWidth = useCallback((count) => {
-    if (!categories.length) return 0;
-    const maxCount = Math.max(...categories.map((c) => c.questionCount || 0));
-    return maxCount > 0 ? (count / maxCount) * 100 : 0;
-  }, [categories]);
+  const getProgressWidth = useCallback(
+    (count) => {
+      if (!categories.length) return 0;
+      const maxCount = Math.max(...categories.map((c) => c.questionCount || 0));
+      return maxCount > 0 ? (count / maxCount) * 100 : 0;
+    },
+    [categories]
+  );
 
   const defaultColors = [
     "#ff6b6b",
@@ -655,16 +988,642 @@ const initializeData = async () => {
   ];
 
   // 使用 useMemo 缓存计算结果
-  const chartData = useMemo(() => getCategoryChartData(), [getCategoryChartData]);
-  const difficultyData = useMemo(() => getDifficultyData(), [getDifficultyData]);
-  const calendarData = useMemo(() => getMonthlyCalendarData(), [getMonthlyCalendarData]);
+  const chartData = useMemo(
+    () => getCategoryChartData(),
+    [getCategoryChartData]
+  );
+  const difficultyData = useMemo(
+    () => getDifficultyData(),
+    [getDifficultyData]
+  );
+  const calendarData = useMemo(
+    () => getMonthlyCalendarData(),
+    [getMonthlyCalendarData]
+  );
   const activeDays = useMemo(() => getActiveDays(), [getActiveDays]);
   const monthStats = useMemo(() => getMonthStats(), [getMonthStats]);
-  
-  const monthName = useMemo(() => selectedMonth.toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "long",
-  }), [selectedMonth]);
+
+  const monthName = useMemo(
+    () =>
+      selectedMonth.toLocaleDateString("zh-CN", {
+        year: "numeric",
+        month: "long",
+      }),
+    [selectedMonth]
+  );
+
+  // 新增：离线模式下的分类浏览
+  const renderOfflineCategories = useCallback(() => {
+    // 从离线题目中提取分类信息
+    const categoryMap = {};
+    offlineQuestions.forEach((question) => {
+      const categoryName = question.category?.name || "未分类";
+      if (!categoryMap[categoryName]) {
+        categoryMap[categoryName] = {
+          name: categoryName,
+          questions: [],
+          questionCount: 0,
+          id: `offline-${categoryName}`, // 生成离线分类ID
+        };
+      }
+      categoryMap[categoryName].questions.push(question);
+      categoryMap[categoryName].questionCount++;
+    });
+
+    const offlineCategories = Object.values(categoryMap);
+
+    return (
+      <section className="categories-section">
+        <div className="container">
+          <div className="offline-header">
+            <h3 style={{ color: "#666666" }}>📦 离线模式</h3>
+            <p style={{ color: "#666666" }}>
+              当前处于离线状态，显示缓存的题目数据
+            </p>
+
+            <div className="cache-stats" style={{ color: "#666666" }}>
+              已缓存 {offlineQuestions.length} 道题目，
+              {offlineCategories.length} 个分类
+            </div>
+
+            {/* 全局离线操作 */}
+            <div className="offline-global-actions">
+              <button
+                onClick={() => navigate("/offline/questions")}
+                className="view-all-offline-btn"
+                style={{ color: "#333333" }}
+              >
+                📚 查看所有离线题目 ({offlineQuestions.length})
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="refresh-network-btn"
+                style={{ color: "#333333" }}
+              >
+                🔄 检查网络连接
+              </button>
+            </div>
+
+            <div
+              className="cache-progress-fill"
+              style={{
+                width: `${
+                  (offlineQuestions.length / cacheService.getCacheLimit()) * 100
+                }%`,
+              }}
+            ></div>
+          </div>
+
+          <div className="categories-grid">
+            {offlineCategories.map((category, index) => {
+              const color = defaultColors[index % defaultColors.length];
+
+              return (
+                <div
+                  key={category.id}
+                  className="category-card offline-card"
+                  onClick={() => navigateToOfflineCategory(category)}
+                  style={{ "--accent-color": color }}
+                >
+                  <div className="card-header">
+                    <div
+                      className="category-icon"
+                      style={{ backgroundColor: color }}
+                    >
+                      {category.name.charAt(0)}
+                    </div>
+                    <div className="category-info">
+                      <h3 className="category-name">{category.name}</h3>
+                      <span className="question-count">
+                        {category.questionCount}题
+                      </span>
+                    </div>
+                    <div className="offline-badge">离线</div>
+                  </div>
+
+                  <div className="card-footer">
+                    <div className="progress-info">
+                      <div className="progress-stats">
+                        <span>离线缓存数据</span>
+                      </div>
+                    </div>
+
+                    <button className="explore-btn">查看题目 →</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    );
+  }, [offlineQuestions, navigateToOfflineCategory, navigate]);
+
+  // 修改现有的渲染逻辑，在离线模式下显示缓存数据
+  const renderContent = () => {
+    if (showOfflineMode) {
+      return renderOfflineCategories();
+    }
+
+    // 原有的在线模式渲染逻辑
+    switch (activeTab) {
+      case "categories":
+        return renderCategoriesTab();
+      case "review":
+        return renderReviewTab();
+      case "stats":
+        return renderStatsTab();
+      case "calendar":
+        return renderCalendarTab();
+      case "documents":
+        return renderDocumentsTab();
+      case "community":
+        return renderCommunityTab();
+      case 'cache':
+        return (
+    <CacheManagementTab 
+      questions={questions}
+      onCacheUpdate={setCacheStatus}
+      currentUser={currentUser}
+    />
+  );
+      default:
+        return renderCategoriesTab();
+    }
+  };
+
+  // 原有的标签页渲染函数
+  const renderCategoriesTab = () => (
+    <>
+      <section className="filters-section">
+        <div className="container">
+          <div className="filters">
+            <div className="stats">
+              找到 {filteredCategories.length} 个类别
+              {categories.length > 0 && ` • 总计 ${questions.length} 道题目`}
+            </div>
+            <button
+              className="add-category-btn"
+              onClick={() => setShowAddCategory(true)}
+            >
+              <span className="btn-icon">+</span>
+              新建分类
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* 添加分类弹窗 */}
+      {showAddCategory && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>创建新分类</h3>
+              <button
+                className="close-btn"
+                onClick={() => setShowAddCategory(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCategory} className="category-form">
+              <div className="form-group">
+                <label htmlFor="categoryName">分类名称 *</label>
+                <input
+                  id="categoryName"
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="请输入分类名称"
+                  maxLength={50}
+                  autoFocus
+                  style={{ color: "black" }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="categoryDescription">分类描述</label>
+                <textarea
+                  id="categoryDescription"
+                  value={newCategoryDescription}
+                  onChange={(e) => setNewCategoryDescription(e.target.value)}
+                  placeholder="请输入分类描述（可选）"
+                  rows="3"
+                  maxLength={200}
+                  style={{ color: "black" }}
+                />
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={() => setShowAddCategory(false)}
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="submit-btn"
+                  disabled={addingCategory || !newCategoryName.trim()}
+                >
+                  {addingCategory ? "创建中..." : "创建分类"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 删除分类确认弹窗 */}
+      {showDeleteConfirm && categoryToDelete && (
+        <div className="modal-overlay">
+          <div className="modal-content delete-confirm-modal">
+            <div className="modal-header">
+              <h3>确认删除</h3>
+              <button className="close-btn" onClick={handleCancelDelete}>
+                ×
+              </button>
+            </div>
+
+            <div className="delete-content">
+              <div className="delete-icon">🗑️</div>
+              <div className="delete-message">
+                <p>
+                  确定要删除分类 <strong>"{categoryToDelete.name}"</strong> 吗？
+                </p>
+                {categoryToDelete.questionCount > 0 && (
+                  <p className="warning-text">
+                    ⚠️ 此分类包含 {categoryToDelete.questionCount}{" "}
+                    道题目，删除后这些题目将变为未分类状态！
+                  </p>
+                )}
+                <p className="delete-hint">此操作不可撤销，请谨慎操作。</p>
+              </div>
+
+              <div className="delete-actions">
+                <button
+                  className="cancel-delete-btn"
+                  onClick={handleCancelDelete}
+                  disabled={deletingCategory}
+                >
+                  取消
+                </button>
+                <button
+                  className="confirm-delete-btn"
+                  onClick={handleConfirmDelete}
+                  disabled={deletingCategory}
+                >
+                  {deletingCategory ? "删除中..." : "确认删除"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <section className="categories-section">
+        <div className="container">
+          {filteredCategories.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">📚</div>
+              <h3>暂无类别数据</h3>
+              <p>没有找到匹配的类别，尝试调整搜索条件或创建新分类</p>
+              <button
+                className="create-first-category-btn"
+                onClick={() => setShowAddCategory(true)}
+              >
+                + 创建第一个分类
+              </button>
+            </div>
+          ) : (
+            <div className="categories-grid">
+              {filteredCategories.map((category, index) => {
+                const color = defaultColors[index % defaultColors.length];
+
+                // 基于 questions 计算该分类的实际题目数量
+                const actualQuestionCount = questions.filter(
+                  (q) => q.category?.id === category.id
+                ).length;
+
+                // 优先显示实际数量，如果没有则显示服务层数量
+                const displayCount =
+                  actualQuestionCount > 0
+                    ? actualQuestionCount
+                    : category.questionCount || 0;
+
+                return (
+                  <div
+                    key={category.id}
+                    className="category-card"
+                    onClick={() => handleCategoryClick(category.id)}
+                    style={{ "--accent-color": color }}
+                  >
+                    <div className="card-header">
+                      <div
+                        className="category-icon"
+                        style={{ backgroundColor: color }}
+                      >
+                        {category.name.charAt(0)}
+                      </div>
+                      <div className="category-info">
+                        <h3 className="category-name">{category.name}</h3>
+                        {category.description && (
+                          <p className="category-description">
+                            {category.description}
+                          </p>
+                        )}
+                        <span className="question-count">{displayCount}题</span>
+                      </div>
+                      <button
+                        className="delete-category-btn"
+                        onClick={(e) => handleDeleteClick(category, e)}
+                        title="删除分类"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    <div className="card-footer">
+                      <div className="progress-info">
+                        <div className="progress-stats">
+                          <span>
+                            最近更新: {formatTime(category.updatedAt)}
+                          </span>
+                        </div>
+                        <div className="progress-bar">
+                          <div
+                            className="progress-fill"
+                            style={{
+                              width: `${getProgressWidth(
+                                category.questionCount
+                              )}%`,
+                              backgroundColor: color,
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <button className="explore-btn">查看题目 →</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+    </>
+  );
+
+  const renderReviewTab = () => (
+    <ReviewReminderSection
+      reviewQuestions={reviewQuestions}
+      setReviewQuestions={setReviewQuestions}
+      reviewThreshold={reviewThreshold}
+      setReviewThreshold={setReviewThreshold}
+      showReviewSettings={showReviewSettings}
+      setShowReviewSettings={setShowReviewSettings}
+      onQuestionClick={handleQuestionClick}
+      onUpdateQuestionTime={handleUpdateQuestionTime}
+      questions={questions}
+    />
+  );
+
+  const renderStatsTab = () => (
+    <section className="stats-section">
+      <div className="container">
+        <div className="stats-overview">
+          <div className="modern-stat-card primary">
+            <div className="stat-icon">📚</div>
+            <div className="stat-content">
+              <div className="stat-number">{categoryStats.totalCategories}</div>
+              <div className="stat-label">总分类数</div>
+            </div>
+          </div>
+          <div className="modern-stat-card success">
+            <div className="stat-icon">❓</div>
+            <div className="stat-content">
+              <div className="stat-number">{questions.length}</div>
+              <div className="stat-label">总题目数</div>
+            </div>
+          </div>
+          <div className="modern-stat-card warning">
+            <div className="stat-icon">📅</div>
+            <div className="stat-content">
+              <div className="stat-number">{activeDays}</div>
+              <div className="stat-label">活跃天数</div>
+            </div>
+          </div>
+          <div className="modern-stat-card info">
+            <div className="stat-icon">⚡</div>
+            <div className="stat-content">
+              <div className="stat-number">
+                {categoryStats.totalQuestions > 0
+                  ? (categoryStats.totalQuestions / activeDays).toFixed(1)
+                  : 0}
+              </div>
+              <div className="stat-label">日均题目</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="charts-grid">
+          <div className="modern-chart-card">
+            <div className="chart-header">
+              <h3>📊 分类题目分布</h3>
+              <span className="chart-subtitle">各分类题目数量占比</span>
+            </div>
+            <div className="chart-container">
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percentage }) => `${name} ${percentage}%`}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={defaultColors[index % defaultColors.length]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value, name) => [`${value} 题`, name]} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="modern-chart-card">
+            <div className="chart-header">
+              <h3>🎯 难度分布</h3>
+              <span className="chart-subtitle">题目难度等级统计</span>
+            </div>
+            <div className="chart-container">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={difficultyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [`${value} 题`, "数量"]} />
+                  <Bar dataKey="value" name="题目数量">
+                    {difficultyData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderCalendarTab = () => (
+    <section className="modern-calendar-section">
+      <div className="container">
+        <div className="calendar-header">
+          <h3>🗓️ 学习日历</h3>
+          <p>查看每月的学习活动分布</p>
+        </div>
+
+        <div className="modern-calendar-card" ref={calendarRef}>
+          <div className="calendar-controls">
+            <button
+              onClick={() => navigateMonth("prev")}
+              className="month-nav-btn"
+            >
+              ← 上个月
+            </button>
+            <h4 className="current-month">{monthName}</h4>
+            <button
+              onClick={() => navigateMonth("next")}
+              className="month-nav-btn"
+            >
+              下个月 →
+            </button>
+          </div>
+
+          <div className="monthly-calendar">
+            <div className="calendar-weekdays">
+              {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
+                <div key={day} className="weekday">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            <div className="calendar-days">
+              {calendarData.map((dayData, index) => (
+                <div
+                  key={index}
+                  className={`calendar-day ${
+                    dayData.count > 0 ? "has-questions" : ""
+                  } ${dayData.isToday ? "today" : ""}`}
+                  style={{ backgroundColor: dayData.color }}
+                  onMouseEnter={(e) => handleDayMouseEnter(dayData, e)}
+                  onMouseLeave={handleDayMouseLeave}
+                  data-count={dayData.count}
+                >
+                  <span className="day-number">{dayData.day}</span>
+                  {dayData.count > 0 && (
+                    <div className="question-count-badge">{dayData.count}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* 使用新的日历提示框组件 */}
+            <CalendarTooltip
+              dayData={hoveredDay}
+              position={tooltipPosition}
+              isVisible={tooltipVisible}
+              onClose={handleTooltipClose}
+            />
+          </div>
+
+          <div className="calendar-stats">
+            <div className="calendar-stat">
+              <span className="stat-value">{monthStats.totalQuestions}</span>
+              <span className="stat-label">本月题目</span>
+            </div>
+            <div className="calendar-stat">
+              <span className="stat-value">{monthStats.daysWithQuestions}</span>
+              <span className="stat-label">学习天数</span>
+            </div>
+            <div className="calendar-stat">
+              <span className="stat-value">{monthStats.maxDaily}</span>
+              <span className="stat-label">单日最高</span>
+            </div>
+          </div>
+
+          <div className="calendar-legend">
+            <div className="legend-item">
+              <div
+                className="legend-color"
+                style={{ backgroundColor: "#f8f9fa" }}
+              ></div>
+              <span>无题目</span>
+            </div>
+            <div className="legend-item">
+              <div
+                className="legend-color"
+                style={{ backgroundColor: "#4CAF50" }}
+              ></div>
+              <span>1题</span>
+            </div>
+            <div className="legend-item">
+              <div
+                className="legend-color"
+                style={{ backgroundColor: "#8BC34A" }}
+              ></div>
+              <span>2-3题</span>
+            </div>
+            <div className="legend-item">
+              <div
+                className="legend-color"
+                style={{ backgroundColor: "#FFC107" }}
+              ></div>
+              <span>4-5题</span>
+            </div>
+            <div className="legend-item">
+              <div
+                className="legend-color"
+                style={{ backgroundColor: "#FF9800" }}
+              ></div>
+              <span>6-8题</span>
+            </div>
+            <div className="legend-item">
+              <div
+                className="legend-color"
+                style={{ backgroundColor: "#F44336" }}
+              ></div>
+              <span>9题以上</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderDocumentsTab = () => (
+    <section className="documents-tab-section">
+      <div className="container">
+        <Documents />
+      </div>
+    </section>
+  );
+
+  const renderCommunityTab = () => <CommunityPage />;
 
   // 用户未登录时的显示
   if (!currentUser) {
@@ -719,6 +1678,10 @@ const initializeData = async () => {
                 <span className="feature-icon">🗓️</span>
                 <span>记录学习日历</span>
               </div>
+              <div className="feature-item">
+                <span className="feature-icon">📦</span>
+                <span>离线缓存题目</span>
+              </div>
             </div>
           </div>
         </div>
@@ -757,29 +1720,34 @@ const initializeData = async () => {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="homepage">
+        {/* 添加离线指示器 */}
+        <OfflineIndicator />
+
         <header className="hero-section">
           <div className="hero-content">
             <div className="user-welcome">
               <h1 className="hero-title">我的知识题库</h1>
               <p className="hero-subtitle">
-                欢迎回来, {currentUser.getUsername()}！按类别管理您的学习内容
+                欢迎回来, {currentUser.getUsername()}！
+                {!isOnline && (
+                  <span className="offline-status"> • 离线模式</span>
+                )}
               </p>
+              <div className="cache-actions" >
+
+
+</div>
+
             </div>
 
-           
-            <div className="search-container">
-              <div className="search-box">
-                <span className="search-icon">🔍</span>
-                <input
-                  type="text"
-                  placeholder="搜索类别..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
+            {/* 更新头部操作区域 */}
+            <div className="header-actions">
+              <div className="search-container">
+                
               </div>
+             
+              {showCacheSettings && <CacheSettingsModal />}
             </div>
-
             
           </div>
         </header>
@@ -853,539 +1821,93 @@ const initializeData = async () => {
                 )}
               </button>
 
-              <button
-                className={`modern-tab ${
-                  activeTab === "community" ? "active" : ""
-                }`}
-                onClick={() => setActiveTab("community")}
-              >
-                <span className="tab-icon">👥</span>
-                <span className="tab-text">学习社区</span>
-                {activeTab === "community" && (
-                  <div className="tab-indicator"></div>
-                )}
-              </button>
+<button
+  className={`modern-tab ${
+    activeTab === "cache" ? "active" : ""
+  }`}
+  onClick={() => setActiveTab("cache")}
+>
+  <span className="tab-icon">💾</span>
+  <span className="tab-text">
+    缓存管理
+    {cacheStatus.hasCache && (
+      <span className="tab-badge">{cacheStatus.count}</span>
+    )}
+  </span>
+  {activeTab === "cache" && (
+    <div className="tab-indicator"></div>
+  )}
+</button>
 
 
+              {/* 缓存状态快速入口 */}
+  {activeTab !== 'cache' && cacheStatus.hasCache && (
+    <div className="cache-quick-access">
+      <button 
+      className={`modern-tab ${
+        activeTab === "community" ? "active" : ""
+      }`}
+        onClick={() => setActiveTab('cache')}
+        
+      >
+ <span className="tab-icon">👥</span>
+ <span className="tab-text">管理缓存</span>      </button>
+    </div>
+  )}
             </div>
           </div>
         </section>
 
-        {activeTab === "categories" && (
-          <>
-            <section className="filters-section">
-              <div className="container">
-                <div className="filters">
-                  <div className="stats">
-                    找到 {filteredCategories.length} 个类别
-                    {categories.length > 0 &&
-                      ` • 总计 ${questions.length} 道题目`}
-                  </div>
-                  <button
-                    className="add-category-btn"
-                    onClick={() => setShowAddCategory(true)}
-                  >
-                    <span className="btn-icon">+</span>
-                    新建分类
-                  </button>
-                </div>
-              </div>
-            </section>
+        {/* 同步状态消息 */}
+        {syncMessage && <div className="sync-message">{syncMessage}</div>}
 
-            {/* 添加分类弹窗 */}
-            {showAddCategory && (
-              <div className="modal-overlay">
-                <div className="modal-content">
-                  <div className="modal-header">
-                    <h3>创建新分类</h3>
-                    <button
-                      className="close-btn"
-                      onClick={() => setShowAddCategory(false)}
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleAddCategory} className="category-form">
-  <div className="form-group">
-    <label htmlFor="categoryName">分类名称 *</label>
-    <input
-      id="categoryName"
-      type="text"
-      value={newCategoryName}
-      onChange={(e) => setNewCategoryName(e.target.value)}
-      placeholder="请输入分类名称"
-      maxLength={50}
-      autoFocus
-      style={{ color: 'black' }}  // 输入框文字设为黑色
-    />
-  </div>
-
-  <div className="form-group">
-    <label htmlFor="categoryDescription">分类描述</label>
-    <textarea
-      id="categoryDescription"
-      value={newCategoryDescription}
-      onChange={(e) => setNewCategoryDescription(e.target.value)}
-      placeholder="请输入分类描述（可选）"
-      rows="3"
-      maxLength={200}
-      style={{ color: 'black' }}  // 文本域文字设为黑色
-    />
-  </div>
-
-  <div className="form-actions">
-    <button
-      type="button"
-      className="cancel-btn"
-      onClick={() => setShowAddCategory(false)}
-    >
-      取消
-    </button>
-    <button
-      type="submit"
-      className="submit-btn"
-      disabled={addingCategory || !newCategoryName.trim()}
-    >
-      {addingCategory ? "创建中..." : "创建分类"}
-    </button>
-  </div>
-</form>
-                </div>
-              </div>
-            )}
-
-            {/* 删除分类确认弹窗 */}
-            {showDeleteConfirm && categoryToDelete && (
-              <div className="modal-overlay">
-                <div className="modal-content delete-confirm-modal">
-                  <div className="modal-header">
-                    <h3>确认删除</h3>
-                    <button className="close-btn" onClick={handleCancelDelete}>
-                      ×
-                    </button>
-                  </div>
-
-                  <div className="delete-content">
-                    <div className="delete-icon">🗑️</div>
-                    <div className="delete-message">
-                      <p>
-                        确定要删除分类{" "}
-                        <strong>"{categoryToDelete.name}"</strong> 吗？
-                      </p>
-                      {categoryToDelete.questionCount > 0 && (
-                        <p className="warning-text">
-                          ⚠️ 此分类包含 {categoryToDelete.questionCount}{" "}
-                          道题目，删除后这些题目将变为未分类状态！
-                        </p>
-                      )}
-                      <p className="delete-hint">
-                        此操作不可撤销，请谨慎操作。
-                      </p>
-                    </div>
-
-                    <div className="delete-actions">
-                      <button
-                        className="cancel-delete-btn"
-                        onClick={handleCancelDelete}
-                        disabled={deletingCategory}
-                      >
-                        取消
-                      </button>
-                      <button
-                        className="confirm-delete-btn"
-                        onClick={handleConfirmDelete}
-                        disabled={deletingCategory}
-                      >
-                        {deletingCategory ? "删除中..." : "确认删除"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <section className="categories-section">
-              <div className="container">
-                {filteredCategories.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="empty-icon">📚</div>
-                    <h3>暂无类别数据</h3>
-                    <p>没有找到匹配的类别，尝试调整搜索条件或创建新分类</p>
-                    <button
-                      className="create-first-category-btn"
-                      onClick={() => setShowAddCategory(true)}
-                    >
-                      + 创建第一个分类
-                    </button>
-                  </div>
-                ) : (
-                  <div className="categories-grid">
-                    {filteredCategories.map((category, index) => {
-                      const color = defaultColors[index % defaultColors.length];
-                      
-                      // 基于 questions 计算该分类的实际题目数量
-                      const actualQuestionCount = questions.filter(q => 
-                        q.category?.id === category.id
-                      ).length;
-                      
-                      // 优先显示实际数量，如果没有则显示服务层数量
-                      const displayCount = actualQuestionCount > 0 ? actualQuestionCount : (category.questionCount || 0);
-
-                      return (
-                        <div
-                          key={category.id}
-                          className="category-card"
-                          onClick={() => handleCategoryClick(category.id)}
-                          style={{ "--accent-color": color }}
-                        >
-                          <div className="card-header">
-                            <div
-                              className="category-icon"
-                              style={{ backgroundColor: color }}
-                            >
-                              {category.name.charAt(0)}
-                            </div>
-                            <div className="category-info">
-                              <h3 className="category-name">{category.name}</h3>
-                              {category.description && (
-                                <p className="category-description">
-                                  {category.description}
-                                </p>
-                              )}
-                              <span className="question-count">
-                              {displayCount}题
-                              </span>
-                            </div>
-                            <button
-                              className="delete-category-btn"
-                              onClick={(e) => handleDeleteClick(category, e)}
-                              title="删除分类"
-                            >
-                              ×
-                            </button>
-                          </div>
-
-                          <div className="card-footer">
-                            <div className="progress-info">
-                              <div className="progress-stats">
-                                <span>
-                                  最近更新: {formatTime(category.updatedAt)}
-                                </span>
-                              </div>
-                              <div className="progress-bar">
-                                <div
-                                  className="progress-fill"
-                                  style={{
-                                    width: `${getProgressWidth(
-                                      category.questionCount
-                                    )}%`,
-                                    backgroundColor: color,
-                                  }}
-                                ></div>
-                              </div>
-                            </div>
-
-                            <button className="explore-btn">查看题目 →</button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </section>
-          </>
-        )}
-
-        {/* 复习提醒标签页 */}
-        {activeTab === "review" && (
-          <ReviewReminderSection
-            reviewQuestions={reviewQuestions}
-            setReviewQuestions={setReviewQuestions}
-            reviewThreshold={reviewThreshold}
-            setReviewThreshold={setReviewThreshold}
-            showReviewSettings={showReviewSettings}
-            setShowReviewSettings={setShowReviewSettings}
-            onQuestionClick={handleQuestionClick} // 传递跳转函数
-            onUpdateQuestionTime={handleUpdateQuestionTime}
-            questions={questions}
-          />
-        )}
-
-        {activeTab === "documents" && (
-          <section className="documents-tab-section">
-            <div className="container">
-              <Documents />
-            </div>
-          </section>
-        )}
-
-        {activeTab === "community" && <CommunityPage />}
-
-        {activeTab === "stats" && (
-          <section className="stats-section">
-            <div className="container">
-              <div className="stats-overview">
-                <div className="modern-stat-card primary">
-                  <div className="stat-icon">📚</div>
-                  <div className="stat-content">
-                    <div className="stat-number">{categoryStats.totalCategories}</div>
-                    <div className="stat-label">总分类数</div>
-                  </div>
-                </div>
-                <div className="modern-stat-card success">
-                  <div className="stat-icon">❓</div>
-                  <div className="stat-content">
-                    <div className="stat-number">{questions.length}</div>
-                    <div className="stat-label">总题目数</div>
-                  </div>
-                </div>
-                <div className="modern-stat-card warning">
-                  <div className="stat-icon">📅</div>
-                  <div className="stat-content">
-                    <div className="stat-number">{activeDays}</div>
-                    <div className="stat-label">活跃天数</div>
-                  </div>
-                </div>
-                <div className="modern-stat-card info">
-                  <div className="stat-icon">⚡</div>
-                  <div className="stat-content">
-                    <div className="stat-number">
-                      {categoryStats.totalQuestions > 0
-                        ? (categoryStats.totalQuestions / activeDays).toFixed(1)
-                        : 0}
-                    </div>
-                    <div className="stat-label">日均题目</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="charts-grid">
-                <div className="modern-chart-card">
-                  <div className="chart-header">
-                    <h3>📊 分类题目分布</h3>
-                    <span className="chart-subtitle">各分类题目数量占比</span>
-                  </div>
-                  <div className="chart-container">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percentage }) =>
-                            `${name} ${percentage}%`
-                          }
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={defaultColors[index % defaultColors.length]}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value, name) => [`${value} 题`, name]}
-                        />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="modern-chart-card">
-                  <div className="chart-header">
-                    <h3>🎯 难度分布</h3>
-                    <span className="chart-subtitle">题目难度等级统计</span>
-                  </div>
-                  <div className="chart-container">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={difficultyData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip
-                          formatter={(value) => [`${value} 题`, "数量"]}
-                        />
-                        <Bar dataKey="value" name="题目数量">
-                          {difficultyData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeTab === "calendar" && (
-          <section className="modern-calendar-section">
-            <div className="container">
-              <div className="calendar-header">
-                <h3>🗓️ 学习日历</h3>
-                <p>查看每月的学习活动分布</p>
-              </div>
-
-              <div className="modern-calendar-card" ref={calendarRef}>
-                <div className="calendar-controls">
-                  <button
-                    onClick={() => navigateMonth("prev")}
-                    className="month-nav-btn"
-                  >
-                    ← 上个月
-                  </button>
-                  <h4 className="current-month">{monthName}</h4>
-                  <button
-                    onClick={() => navigateMonth("next")}
-                    className="month-nav-btn"
-                  >
-                    下个月 →
-                  </button>
-                </div>
-
-                <div className="monthly-calendar">
-                  <div className="calendar-weekdays">
-                    {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
-                      <div key={day} className="weekday">
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="calendar-days">
-                    {calendarData.map((dayData, index) => (
-                      <div
-                        key={index}
-                        className={`calendar-day ${
-                          dayData.count > 0 ? "has-questions" : ""
-                        } ${dayData.isToday ? "today" : ""}`}
-                        style={{ backgroundColor: dayData.color }}
-                        onMouseEnter={(e) => handleDayMouseEnter(dayData, e)}
-                        onMouseLeave={handleDayMouseLeave}
-                        data-count={dayData.count}
-                      >
-                        <span className="day-number">{dayData.day}</span>
-                        {dayData.count > 0 && (
-                          <div className="question-count-badge">
-                            {dayData.count}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 使用新的日历提示框组件 */}
-                  <CalendarTooltip
-                    dayData={hoveredDay}
-                    position={tooltipPosition}
-                    isVisible={tooltipVisible}
-                    onClose={handleTooltipClose}
-                  />
-                </div>
-
-                <div className="calendar-stats">
-                  <div className="calendar-stat">
-                    <span className="stat-value">
-                      {monthStats.totalQuestions}
-                    </span>
-                    <span className="stat-label">本月题目</span>
-                  </div>
-                  <div className="calendar-stat">
-                    <span className="stat-value">
-                      {monthStats.daysWithQuestions}
-                    </span>
-                    <span className="stat-label">学习天数</span>
-                  </div>
-                  <div className="calendar-stat">
-                    <span className="stat-value">{monthStats.maxDaily}</span>
-                    <span className="stat-label">单日最高</span>
-                  </div>
-                </div>
-
-                <div className="calendar-legend">
-                  <div className="legend-item">
-                    <div
-                      className="legend-color"
-                      style={{ backgroundColor: "#f8f9fa" }}
-                    ></div>
-                    <span>无题目</span>
-                  </div>
-                  <div className="legend-item">
-                    <div
-                      className="legend-color"
-                      style={{ backgroundColor: "#4CAF50" }}
-                    ></div>
-                    <span>1题</span>
-                  </div>
-                  <div className="legend-item">
-                    <div
-                      className="legend-color"
-                      style={{ backgroundColor: "#8BC34A" }}
-                    ></div>
-                    <span>2-3题</span>
-                  </div>
-                  <div className="legend-item">
-                    <div
-                      className="legend-color"
-                      style={{ backgroundColor: "#FFC107" }}
-                    ></div>
-                    <span>4-5题</span>
-                  </div>
-                  <div className="legend-item">
-                    <div
-                      className="legend-color"
-                      style={{ backgroundColor: "#FF9800" }}
-                    ></div>
-                    <span>6-8题</span>
-                  </div>
-                  <div className="legend-item">
-                    <div
-                      className="legend-color"
-                      style={{ backgroundColor: "#F44336" }}
-                    ></div>
-                    <span>9题以上</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
+        {/* 主要内容区域 */}
+        {renderContent()}
 
         {/* 修复底部统计 */}
         <footer className="footer-section">
           <div className="container">
             <div className="footer-stats">
               <div className="stat-item">
-                <div className="stat-number">{categoryStats.totalCategories}</div>
+                <div className="stat-number">
+                  {categoryStats.totalCategories}
+                </div>
                 <div className="stat-label">总类别数</div>
               </div>
               <div className="stat-item">
                 <div className="stat-number">{questions.length}</div>
                 <div className="stat-label">总题目数</div>
               </div>
-             
+              <div className="stat-item">
+                <div className="stat-number">{cacheStatus.count || 0}</div>
+                <div className="stat-label">缓存题目</div>
+              </div>
             </div>
-            
-          
           </div>
         </footer>
-        <Chatbox 
+
+        <Chatbox
           onNavigate={handleChatboxNavigate}
           categories={categories}
           questions={questions}
           currentUser={currentUser}
+          cacheStatus={cacheStatus}
+          isOnline={isOnline}
         />
       </div>
     </QueryClientProvider>
   );
+};
+
+// 清理缓存的函数（需要从其他文件导入）
+const clearAllCache = () => {
+  // 实现缓存清理逻辑
+  console.log("清理所有缓存");
+};
+
+const clearCategoryCache = () => {
+  // 实现分类缓存清理逻辑
+  console.log("清理分类缓存");
 };
 
 export default HomePage;

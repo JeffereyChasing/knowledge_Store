@@ -1,6 +1,7 @@
 // components/OfflineIndicator.jsx
 import React, { useState, useEffect } from 'react';
-import { offlineService, cacheService } from '../services/offlineService';
+import { offlineService } from '../services/offlineService';
+import { cacheService } from '../services/cacheService'; // 确保从正确的文件导入
 import './OfflineIndicator.css';
 
 const OfflineIndicator = () => {

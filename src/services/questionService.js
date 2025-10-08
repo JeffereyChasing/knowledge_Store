@@ -1,5 +1,6 @@
 // services/questionService.js
 import AV from 'leancloud-storage';
+import { offlineService } from './offlineService';
 
 // 请求管理工具
 class RequestManager {
@@ -32,6 +33,12 @@ class RequestManager {
 
   // 缓存请求
   async cachedRequest(key, fn, useCache = true) {
+    // 离线模式下不使用网络请求
+    if (offlineService.shouldUseOfflineData()) {
+      console.log('📦 离线模式：跳过网络请求', key);
+      throw new Error('网络不可用，当前处于离线模式');
+    }
+
     if (useCache) {
       const cached = this.cache.get(key);
       if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
@@ -87,6 +94,9 @@ export const ProficiencyOptions = {
 const REQUEST_DELAY = 1000; // 1秒延迟
 const BATCH_SIZE = 10; // 批量请求大小
 
+// 离线数据存储键
+const OFFLINE_QUESTIONS_KEY = 'offline_questions_all';
+
 /**
  * 获取分类ID的辅助函数
  */
@@ -109,6 +119,12 @@ const createCategoryPointer = (categoryId) => {
  * 批量更新分类题目数量的辅助函数
  */
 const batchUpdateCategoryCounts = async (updates) => {
+  // 离线模式下跳过分类计数更新
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：跳过分类计数更新');
+    return;
+  }
+
   if (updates.length === 0) return;
 
   try {
@@ -155,6 +171,11 @@ let batchUpdateTimer = null;
  * 调度批量更新
  */
 const scheduleBatchUpdate = (category, change) => {
+  // 离线模式下跳过批量更新
+  if (offlineService.shouldUseOfflineData()) {
+    return;
+  }
+
   const categoryId = getCategoryId(category);
   if (!categoryId) return;
 
@@ -204,9 +225,45 @@ const formatQuestionResponse = (question) => {
 };
 
 /**
+ * 获取离线题目数据
+ */
+const getOfflineQuestions = () => {
+  try {
+    const cached = localStorage.getItem(OFFLINE_QUESTIONS_KEY);
+    if (cached) {
+      const data = JSON.parse(cached);
+      console.log('📦 从离线存储加载题目数据:', data.length, '道题目');
+      return data;
+    }
+    
+    // 如果没有离线数据，返回空数组
+    return [];
+  } catch (error) {
+    console.error('获取离线题目数据失败:', error);
+    return [];
+  }
+};
+
+/**
+ * 保存题目数据到离线存储
+ */
+const saveQuestionsToOffline = (questions) => {
+  try {
+    localStorage.setItem(OFFLINE_QUESTIONS_KEY, JSON.stringify(questions));
+  } catch (error) {
+    console.error('保存题目数据到离线存储失败:', error);
+  }
+};
+
+/**
  * 创建题目
  */
 export const createQuestion = async (questionData) => {
+  // 离线模式下不允许创建题目
+  if (offlineService.shouldUseOfflineData()) {
+    throw new Error('离线模式下无法创建题目');
+  }
+
   try {
     const currentUser = AV.User.current();
     if (!currentUser) {
@@ -265,6 +322,20 @@ export const createQuestion = async (questionData) => {
  * 获取类别的题目列表（带缓存和防抖）
  */
 export const getQuestionsByCategory = async (categoryId, options = {}) => {
+  // 离线模式下返回空结果
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法获取分类题目列表');
+    return {
+      data: [],
+      pagination: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 0
+      }
+    };
+  }
+
   const cacheKey = `questions-${categoryId}-${JSON.stringify(options)}`;
   
   return requestManager.cachedRequest(cacheKey, async () => {
@@ -332,6 +403,12 @@ export const getQuestionsByCategory = async (categoryId, options = {}) => {
  * 根据ID获取单个题目详情（带缓存）
  */
 export const getQuestionById = async (id) => {
+  // 离线模式下返回空数据
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法获取单个题目详情');
+    throw new Error('离线模式下无法获取题目详情');
+  }
+
   return requestManager.cachedRequest(`question_${id}`, async () => {
     try {
       const query = new AV.Query('Question');
@@ -356,6 +433,12 @@ export const getQuestionById = async (id) => {
  * 批量获取题目详情（优化性能）
  */
 export const getQuestionsBatch = async (questionIds) => {
+  // 离线模式下返回空数组
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法批量获取题目');
+    return [];
+  }
+
   if (!questionIds || questionIds.length === 0) return [];
 
   // 分批处理，避免过多请求
@@ -393,6 +476,11 @@ export const getQuestionsBatch = async (questionIds) => {
  * 删除题目
  */
 export const deleteQuestion = async (questionId) => {
+  // 离线模式下不允许删除题目
+  if (offlineService.shouldUseOfflineData()) {
+    throw new Error('离线模式下无法删除题目');
+  }
+
   try {
     const currentUser = AV.User.current();
     if (!currentUser) {
@@ -435,6 +523,20 @@ export const deleteQuestion = async (questionId) => {
  * 搜索题目
  */
 export const searchQuestions = async (searchTerm, options = {}) => {
+  // 离线模式下返回空结果
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法搜索题目');
+    return {
+      data: [],
+      pagination: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 0
+      }
+    };
+  }
+
   const cacheKey = `search-${searchTerm}-${JSON.stringify(options)}`;
   
   return requestManager.cachedRequest(cacheKey, async () => {
@@ -501,17 +603,15 @@ export const searchQuestions = async (searchTerm, options = {}) => {
 };
 
 /**
- * 获取所有题目（带缓存）
- */
-// services/questionService.js
-
-/**
- * 获取所有题目（禁用缓存）- 确保实时数据
- */
-/**
  * 获取所有题目（修复分页限制）- 确保获取全部数据
  */
 export const getAllQuestions = async (useCache = false) => {
+  // 离线模式处理
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：从本地存储获取题目数据');
+    return getOfflineQuestions();
+  }
+
   if (!useCache) {
     // 清除缓存
     requestManager.clearCache('all-questions');
@@ -556,9 +656,19 @@ export const getAllQuestions = async (useCache = false) => {
         最新题目: result.slice(0, 3).map(q => ({ id: q.id, title: q.title }))
       });
       
+      // 保存到离线存储
+      saveQuestionsToOffline(result);
+      
       return result;
     } catch (error) {
       console.error('获取所有题目失败:', error);
+      
+      // 网络请求失败时，尝试使用离线数据
+      if (error.message.includes('offline') || error.message.includes('network') || error.message.includes('CORS')) {
+        console.log('🌐 网络请求失败，尝试使用离线数据');
+        return getOfflineQuestions();
+      }
+      
       throw error;
     }
   }
@@ -586,7 +696,9 @@ export const getAllQuestions = async (useCache = false) => {
       skip += limit;
     }
 
-    return allQuestions.map(question => formatQuestionResponse(question));
+    const result = allQuestions.map(question => formatQuestionResponse(question));
+    saveQuestionsToOffline(result);
+    return result;
   });
 };
 
@@ -594,6 +706,11 @@ export const getAllQuestions = async (useCache = false) => {
  * 更新题目
  */
 export const updateQuestion = async (questionId, updateData) => {
+  // 离线模式下不允许更新题目
+  if (offlineService.shouldUseOfflineData()) {
+    throw new Error('离线模式下无法更新题目');
+  }
+
   try {
     console.log('questionService: 更新题目', questionId, updateData);
     
@@ -661,6 +778,11 @@ export const updateQuestion = async (questionId, updateData) => {
  * 更新题目复习时间
  */
 export const updateQuestionReviewTime = async (questionId) => {
+  // 离线模式下不允许更新复习时间
+  if (offlineService.shouldUseOfflineData()) {
+    throw new Error('离线模式下无法更新复习时间');
+  }
+
   try {
     const currentUser = AV.User.current();
     if (!currentUser) {
@@ -687,6 +809,12 @@ export const updateQuestionReviewTime = async (questionId) => {
  * 获取需要复习的题目
  */
 export const getReviewQuestions = async (thresholdDays = 7) => {
+  // 离线模式下返回空数组
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法获取复习题目');
+    return [];
+  }
+
   const cacheKey = `review-questions-${thresholdDays}`;
   
   return requestManager.cachedRequest(cacheKey, async () => {
@@ -716,6 +844,11 @@ export const getReviewQuestions = async (thresholdDays = 7) => {
 };
 
 const updateCategoryCountImmediately = async (category, change) => {
+  // 离线模式下跳过分类计数更新
+  if (offlineService.shouldUseOfflineData()) {
+    return;
+  }
+
   if (!category) return;
   
   const categoryId = getCategoryId(category);
@@ -734,9 +867,8 @@ const updateCategoryCountImmediately = async (category, change) => {
     console.log(`分类 ${freshCategory.get('name')} 题目数量立即更新: ${currentCount} -> ${newCount}`);
     
     // 清除相关缓存
-    cacheConfig.categories.data = null;
-    cacheConfig.categories.timestamp = 0;
-    cacheConfig.questionCounts.delete(categoryId);
+    // 注意：这里需要访问 categoryService 的缓存配置
+    // 在实际项目中，你可能需要导入 categoryService 或使用共享的缓存管理器
     
   } catch (error) {
     console.error(`立即更新分类 ${categoryId} 题目数量失败:`, error);

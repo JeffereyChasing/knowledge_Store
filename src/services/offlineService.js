@@ -1,6 +1,4 @@
 // services/offlineService.js
-import { cacheService } from './cacheService';
-
 export class OfflineService {
   constructor() {
     this.isOnline = true;
@@ -34,13 +32,25 @@ export class OfflineService {
 
   // 检查是否应该使用离线数据
   shouldUseOfflineData() {
-    return !this.isOnline && cacheService.getCacheStatus().hasCache;
+    // 如果明确是离线模式，或者网络不可用
+    return !this.isOnline;
+  }
+
+  // 模拟网络请求 - 在离线模式下返回假数据
+  simulateNetworkRequest() {
+    return new Promise((resolve, reject) => {
+      if (this.shouldUseOfflineData()) {
+        reject(new Error('网络不可用，当前处于离线模式'));
+      } else {
+        resolve();
+      }
+    });
   }
 
   // 事件分发
-  dispatchEvent(eventName) {
+  dispatchEvent(eventName, data) {
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent(`offline:${eventName}`));
+      window.dispatchEvent(new CustomEvent(`offline:${eventName}`, { detail: data }));
     }
   }
 

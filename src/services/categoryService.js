@@ -1,8 +1,15 @@
 // services/categoryService.js
 import AV from 'leancloud-storage';
+import { offlineService } from './offlineService';
 
 // 初始化
 export const initAV = () => {
+  // 在离线模式下不初始化 LeanCloud
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：跳过 LeanCloud 初始化');
+    return;
+  }
+  
   AV.init({
     appId: process.env.REACT_APP_LC_APP_ID,
     appKey: process.env.REACT_APP_LC_APP_KEY,
@@ -35,6 +42,9 @@ const cacheConfig = {
   questionCountTtl: 2 * 60 * 1000
 };
 
+// 离线数据存储键
+const OFFLINE_CATEGORIES_KEY = 'offline_categories';
+
 /**
  * 清除所有缓存
  */
@@ -66,14 +76,67 @@ const isCacheValid = (timestamp, ttl) => {
 };
 
 /**
- * 批量获取分类题目数量（优化版本）
+ * 获取离线分类数据
  */
-// services/categoryService.js
+const getOfflineCategories = () => {
+  try {
+    const cached = localStorage.getItem(OFFLINE_CATEGORIES_KEY);
+    if (cached) {
+      const data = JSON.parse(cached);
+      console.log('📦 从离线存储加载分类数据:', data.data.length, '个分类');
+      return data;
+    }
+    
+    // 如果没有离线数据，返回空数据
+    return {
+      data: [],
+      total: 0,
+      page: 1,
+      pageSize: 50
+    };
+  } catch (error) {
+    console.error('获取离线分类数据失败:', error);
+    return {
+      data: [],
+      total: 0,
+      page: 1,
+      pageSize: 50
+    };
+  }
+};
+
+/**
+ * 保存分类数据到离线存储
+ */
+const saveCategoriesToOffline = (categories) => {
+  try {
+    const data = {
+      data: categories,
+      total: categories.length,
+      page: 1,
+      pageSize: 50,
+      timestamp: Date.now()
+    };
+    localStorage.setItem(OFFLINE_CATEGORIES_KEY, JSON.stringify(data));
+  } catch (error) {
+    console.error('保存分类数据到离线存储失败:', error);
+  }
+};
 
 /**
  * 批量获取分类题目数量（修复版本）
  */
 const getCategoriesQuestionCounts = async (categories) => {
+  // 离线模式下返回空计数
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：跳过题目数量统计');
+    const counts = {};
+    categories.forEach(cat => {
+      counts[cat.id] = 0;
+    });
+    return counts;
+  }
+
   try {
     const categoryIds = categories.map(cat => cat.id);
     const questionCounts = {};
@@ -177,6 +240,13 @@ const getCategoriesQuestionCounts = async (categories) => {
  * 获取所有类别（不分页）- 带缓存
  */
 export const getAllCategories = async () => {
+  // 离线模式处理
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：从本地存储获取分类数据');
+    const offlineData = getOfflineCategories();
+    return offlineData.data || [];
+  }
+
   try {
     const currentUser = AV.User.current();
     if (!currentUser) {
@@ -212,13 +282,22 @@ export const getAllCategories = async () => {
       createdBy: category.get('createdBy')
     }));
 
-    // 更新缓存
+    // 更新缓存和离线存储
     cacheConfig.categories.data = result;
     cacheConfig.categories.timestamp = now;
+    saveCategoriesToOffline(result);
 
     return result;
   } catch (error) {
     console.error('获取所有分类失败:', error);
+    
+    // 网络请求失败时，尝试使用离线数据
+    if (error.message.includes('offline') || error.message.includes('network') || error.message.includes('CORS')) {
+      console.log('🌐 网络请求失败，尝试使用离线数据');
+      const offlineData = getOfflineCategories();
+      return offlineData.data || [];
+    }
+    
     throw error;
   }
 };
@@ -227,6 +306,12 @@ export const getAllCategories = async () => {
  * 分页获取类别列表 - 带缓存
  */
 export const getCategories = async (options = {}) => {
+  // 离线模式处理
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：从本地存储获取分类数据');
+    return getOfflineCategories();
+  }
+
   try {
     const currentUser = AV.User.current();
     if (!currentUser) {
@@ -291,15 +376,23 @@ export const getCategories = async (options = {}) => {
       pageSize: options.pageSize || categoriesWithCount.length
     };
 
-    // 如果是默认查询，更新缓存
+    // 如果是默认查询，更新缓存和离线存储
     if (isDefaultQuery) {
       cacheConfig.categories.data = categoriesWithCount;
       cacheConfig.categories.timestamp = now;
+      saveCategoriesToOffline(categoriesWithCount);
     }
 
     return result;
   } catch (error) {
     console.error('获取分类失败:', error);
+    
+    // 网络请求失败时，尝试使用离线数据
+    if (error.message.includes('offline') || error.message.includes('network') || error.message.includes('CORS')) {
+      console.log('🌐 网络请求失败，尝试使用离线数据');
+      return getOfflineCategories();
+    }
+    
     throw error;
   }
 };
@@ -308,6 +401,12 @@ export const getCategories = async (options = {}) => {
  * 根据ID获取单个类别详情 - 带缓存
  */
 export const getCategoryById = async (categoryId) => {
+  // 离线模式下返回空数据
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法获取单个分类详情');
+    throw new Error('离线模式下无法获取分类详情');
+  }
+
   try {
     // 检查缓存
     const cached = cacheConfig.categoryDetails.get(categoryId);
@@ -358,6 +457,12 @@ export const getCategoryById = async (categoryId) => {
  * 获取分类及其题目列表 - 带缓存
  */
 export const getCategoryWithQuestions = async (categoryId) => {
+  // 离线模式下返回空数据
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法获取分类题目列表');
+    throw new Error('离线模式下无法获取分类题目列表');
+  }
+
   try {
     const currentUser = AV.User.current();
     if (!currentUser) {
@@ -431,6 +536,11 @@ export const getCategoryWithQuestions = async (categoryId) => {
  * 创建新类别 - 清除相关缓存
  */
 export const createCategory = async (categoryData) => {
+  // 离线模式下不允许创建分类
+  if (offlineService.shouldUseOfflineData()) {
+    throw new Error('离线模式下无法创建分类');
+  }
+
   try {
     const currentUser = AV.User.current();
     if (!currentUser) {
@@ -474,6 +584,11 @@ export const createCategory = async (categoryData) => {
  * 更新类别 - 清除相关缓存
  */
 export const updateCategory = async (categoryId, updateData) => {
+  // 离线模式下不允许更新分类
+  if (offlineService.shouldUseOfflineData()) {
+    throw new Error('离线模式下无法更新分类');
+  }
+
   try {
     if (updateData.name && updateData.name.trim() === '') {
       throw new Error('类别名不能为空');
@@ -506,6 +621,11 @@ export const updateCategory = async (categoryId, updateData) => {
  * 更新类别题目计数 - 清除相关缓存
  */
 export const updateCategoryQuestionCount = async (categoryId) => {
+  // 离线模式下不允许更新计数
+  if (offlineService.shouldUseOfflineData()) {
+    throw new Error('离线模式下无法更新题目计数');
+  }
+
   try {
     const category = AV.Object.createWithoutData('Category', categoryId);
     const questionQuery = new AV.Query('Question');
@@ -530,6 +650,11 @@ export const updateCategoryQuestionCount = async (categoryId) => {
  * 删除类别 - 清除相关缓存
  */
 export const deleteCategory = async (categoryId) => {
+  // 离线模式下不允许删除分类
+  if (offlineService.shouldUseOfflineData()) {
+    throw new Error('离线模式下无法删除分类');
+  }
+
   try {
     const category = AV.Object.createWithoutData('Category', categoryId);
     
@@ -589,6 +714,20 @@ export const getCategoriesStats = async () => {
  * 搜索类别 - 不使用缓存
  */
 export const searchCategories = async (searchTerm, options = {}) => {
+  // 离线模式下返回空结果
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法搜索分类');
+    return {
+      data: [],
+      pagination: {
+        current: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 0
+      }
+    };
+  }
+
   try {
     const { page = 1, pageSize = 10 } = options;
     
@@ -626,6 +765,14 @@ export const searchCategories = async (searchTerm, options = {}) => {
  * 获取分类下的题目 - 不使用缓存（因为题目经常变动）
  */
 export const getQuestionsByCategory = async (categoryId, options = {}) => {
+  // 离线模式下返回空结果
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法获取分类题目');
+    return {
+      data: []
+    };
+  }
+
   try {
     const currentUser = AV.User.current();
     if (!currentUser) {
@@ -692,11 +839,18 @@ export const getQuestionsByCategory = async (categoryId, options = {}) => {
   }
 };
 
-// services/categoryService.js
-// 在现有方法基础上添加：
-
 // 获取所有题目（分页方式）
 export const getAllQuestionsPaginated = async (options = {}) => {
+  // 离线模式下返回空结果
+  if (offlineService.shouldUseOfflineData()) {
+    console.log('📦 离线模式：无法获取分页题目');
+    return {
+      data: [],
+      total: 0,
+      hasMore: false
+    };
+  }
+
   const {
     page = 0,
     pageSize = 50,
@@ -757,4 +911,3 @@ export const getAllQuestionsPaginated = async (options = {}) => {
     throw error;
   }
 };
-

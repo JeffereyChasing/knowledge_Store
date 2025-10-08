@@ -12,6 +12,9 @@ import UserSettingsModal from './components/UserSettingsModal';
 import ReviewPage from './pages/ReviewPage';
 import './App.css';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
+import OfflineQuestionsPage from './pages/OfflineQuestionsPage';
+
+
 
 // 在组件外部创建 QueryClient 实例
 const queryClient = new QueryClient({
@@ -75,6 +78,10 @@ function App() {
           <Route path="/category/:categoryId" element={<CategoryDetailPage />} />
           <Route path="/test" element={<TestPage />} />
           <Route path="/review" element={<ReviewPage />} />
+          <Route path="/offline/questions" element={<OfflineQuestionsPage />} />
+<Route path="/offline/questions/:questionId" element={<OfflineQuestionsPage />} />
+<Route path="/offline/category/:categoryName" element={<OfflineQuestionsPage />} />
+<Route path="/offline/category/:categoryName/question/:questionId" element={<OfflineQuestionsPage />} />
         </Routes>
 
         <AuthModal 

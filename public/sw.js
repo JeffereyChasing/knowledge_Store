@@ -1,24 +1,37 @@
-// public/sw.js - 支持题目数据缓存的版本
-const STATIC_CACHE_NAME = 'bagu-mock-static-v1.0.2';
-const DATA_CACHE_NAME = 'questions-data-v1'; // 新增：专门的数据缓存
+// public/sw.js - 增强版，支持题目数据缓存和离线渲染
+const STATIC_CACHE_NAME = 'bagu-mock-static-v2.0.0';
+const DATA_CACHE_NAME = 'questions-data-v2';
+const OFFLINE_PAGE = '/offline.html';
+
+// 需要缓存的静态资源
+const STATIC_ASSETS = [
+  '/',
+  '/manifest.json',
+  '/favicon.ico',
+  '/static/js/bundle.js',
+  '/static/css/main.css'
+];
 
 // ========== 安装阶段 ==========
 self.addEventListener('install', (event) => {
-  console.log('🔄 Service Worker 安装');
+  console.log('🔄 Service Worker 安装中...');
   
   event.waitUntil(
-    caches.open(STATIC_CACHE_NAME).then((cache) => {
-      // 预缓存关键静态文件
-      return cache.addAll([
-        '/manifest.json',
-        '/favicon.ico'
-      ]);
-    }).then(() => {
-      console.log('✅ 静态资源预缓存完成');
-      self.skipWaiting();
+    Promise.all([
+      // 缓存静态资源
+      caches.open(STATIC_CACHE_NAME).then((cache) => {
+        console.log('📦 缓存静态资源');
+        return cache.addAll(STATIC_ASSETS);
+      }),
+      // 创建离线页面
+      caches.open(DATA_CACHE_NAME).then((cache) => {
+        return cache.add(OFFLINE_PAGE);
+      })
+    ]).then(() => {
+      console.log('✅ Service Worker 安装完成');
+      return self.skipWaiting();
     }).catch((error) => {
-      console.error('❌ 预缓存失败:', error);
-      self.skipWaiting();
+      console.error('❌ Service Worker 安装失败:', error);
     })
   );
 });
@@ -26,84 +39,166 @@ self.addEventListener('install', (event) => {
 // ========== 激活阶段 ==========
 self.addEventListener('activate', (event) => {
   console.log('🚀 Service Worker 激活');
+  
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
-      // 清理旧版本缓存
+      // 清理旧缓存
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            // 保留数据缓存，只清理静态缓存
-            if (cacheName !== STATIC_CACHE_NAME && cacheName !== DATA_CACHE_NAME) {
+            if (![STATIC_CACHE_NAME, DATA_CACHE_NAME].includes(cacheName)) {
               console.log('🗑️ 删除旧缓存:', cacheName);
               return caches.delete(cacheName);
             }
           })
         );
       })
-    ])
+    ]).then(() => {
+      console.log('✅ Service Worker 激活完成');
+      // 通知所有客户端
+      return self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'SW_ACTIVATED',
+            version: '2.0.0'
+          });
+        });
+      });
+    })
   );
 });
 
-// ========== 请求处理 ==========
+// ========== 请求拦截 ==========
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  
+  const url = new URL(request.url);
+
   // 只处理同源请求
-  if (!request.url.startsWith(self.location.origin)) {
+  if (!url.origin.startsWith(self.location.origin)) {
     return;
   }
 
-  // 处理题目数据缓存请求
-  if (request.url.includes('/api/cached/')) {
-    event.respondWith(handleDataCache(request));
+  // API 请求 - 优先网络，失败时使用缓存
+  if (url.pathname.startsWith('/api/') || url.pathname.includes('/questions')) {
+    event.respondWith(handleApiRequest(request));
     return;
   }
 
-  // 页面导航请求
-  if (request.mode === 'navigate') {
-    event.respondWith(handleNavigation(request));
+  // 数据缓存请求
+  if (url.pathname.includes('/offline-data')) {
+    event.respondWith(handleOfflineDataRequest(request));
     return;
   }
-  
-  // 静态资源请求
+
+  // 静态资源 - 缓存优先
   if (request.destination === 'script' || 
       request.destination === 'style' ||
       request.destination === 'image' ||
-      request.url.includes('/static/')) {
-    event.respondWith(handleStaticResource(request));
+      url.pathname.includes('/static/')) {
+    event.respondWith(handleStaticRequest(request));
+    return;
+  }
+
+  // 页面导航 - 网络优先
+  if (request.mode === 'navigate') {
+    event.respondWith(handleNavigationRequest(request));
     return;
   }
 });
 
-// ========== 新增：处理数据缓存 ==========
-
-/**
- * 处理题目数据缓存
- */
-async function handleDataCache(request) {
+// ========== API 请求处理 ==========
+async function handleApiRequest(request) {
+  const cache = await caches.open(DATA_CACHE_NAME);
+  
   try {
-    // 对于数据缓存，直接使用缓存策略
-    const cache = await caches.open(DATA_CACHE_NAME);
-    const cachedResponse = await cache.match(request);
+    // 优先尝试网络请求
+    const networkResponse = await fetch(request);
     
+    if (networkResponse.ok) {
+      // 缓存成功的 API 响应
+      console.log('✅ API 请求成功，更新缓存:', request.url);
+      cache.put(request, networkResponse.clone());
+      
+      // 如果是题目数据，发送消息给客户端
+      if (request.url.includes('/questions') || request.url.includes('/api/')) {
+        self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({
+              type: 'DATA_UPDATED',
+              url: request.url,
+              timestamp: Date.now()
+            });
+          });
+        });
+      }
+      
+      return networkResponse;
+    }
+    
+    throw new Error(`HTTP ${networkResponse.status}`);
+  } catch (error) {
+    console.log('📶 网络请求失败，尝试缓存:', request.url);
+    
+    // 返回缓存数据
+    const cachedResponse = await cache.match(request);
     if (cachedResponse) {
-      console.log('📦 从数据缓存返回:', request.url);
+      console.log('✅ 从缓存返回 API 数据');
       return cachedResponse;
     }
     
-    // 如果没有缓存数据，返回空数据
+    // 没有缓存数据，返回离线响应
     return new Response(
-      JSON.stringify({ data: [], timestamp: Date.now(), version: '1.0' }),
+      JSON.stringify({ 
+        error: '网络不可用且无缓存数据',
+        offline: true,
+        data: [] 
+      }),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       }
     );
-  } catch (error) {
-    console.error('❌ 数据缓存处理失败:', error);
+  }
+}
+
+// ========== 离线数据请求处理 ==========
+async function handleOfflineDataRequest(request) {
+  const cache = await caches.open(DATA_CACHE_NAME);
+  
+  try {
+    // 解析请求参数
+    const url = new URL(request.url);
+    const cacheKey = url.searchParams.get('key') || 'default';
+    
+    // 从缓存获取数据
+    const cachedResponse = await cache.match(`/offline-data?key=${cacheKey}`);
+    
+    if (cachedResponse) {
+      console.log('📦 返回离线缓存数据:', cacheKey);
+      return cachedResponse;
+    }
+    
+    // 没有缓存数据
     return new Response(
-      JSON.stringify({ error: 'Cache error', data: [] }),
+      JSON.stringify({ 
+        data: null,
+        error: 'No cached data available',
+        timestamp: Date.now()
+      }),
+      {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
+  } catch (error) {
+    console.error('❌ 离线数据请求失败:', error);
+    
+    return new Response(
+      JSON.stringify({ 
+        error: 'Cache error',
+        data: null 
+      }),
       {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -112,50 +207,25 @@ async function handleDataCache(request) {
   }
 }
 
-// ========== 原有处理函数 ==========
-
-/**
- * 处理页面导航
- */
-async function handleNavigation(request) {
-  try {
-    console.log('🌐 尝试网络请求:', request.url);
-    const response = await fetch(request);
-    
-    if (response.status === 200) {
-      console.log('✅ 网络请求成功');
-      return response;
-    }
-    
-    throw new Error(`Server responded with ${response.status}`);
-  } catch (error) {
-    console.log('📶 网络不可用，显示离线页面');
-    return createOfflinePage();
-  }
-}
-
-/**
- * 处理静态资源
- */
-async function handleStaticResource(request) {
+// ========== 静态资源请求处理 ==========
+async function handleStaticRequest(request) {
   const cachedResponse = await caches.match(request);
+  
   if (cachedResponse) {
-    console.log('💾 从缓存返回:', request.url);
     return cachedResponse;
   }
   
   try {
-    const response = await fetch(request);
+    const networkResponse = await fetch(request);
     
-    if (response.status === 200) {
+    if (networkResponse.ok) {
       const cache = await caches.open(STATIC_CACHE_NAME);
-      cache.put(request, response.clone());
+      cache.put(request, networkResponse.clone());
     }
     
-    return response;
+    return networkResponse;
   } catch (error) {
-    console.log('❌ 资源加载失败:', request.url);
-    
+    // 对于图片，返回占位符
     if (request.destination === 'image') {
       return createImagePlaceholder();
     }
@@ -164,87 +234,253 @@ async function handleStaticResource(request) {
   }
 }
 
-/**
- * 创建离线页面
- */
-function createOfflinePage() {
-  return new Response(
-    `<!DOCTYPE html>
-    <html lang="zh-CN">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>离线模式 - 八股精Mock</title>
-        <style>
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                height: 100vh;
-                margin: 0;
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                color: white;
-                text-align: center;
-            }
-            .container {
-                background: rgba(255,255,255,0.1);
-                padding: 2rem;
-                border-radius: 16px;
-                backdrop-filter: blur(10px);
-                max-width: 450px;
-                margin: 1rem;
-            }
-            .icon { font-size: 4rem; margin-bottom: 1rem; }
-            h1 { margin-bottom: 1rem; }
-            .features { text-align: left; margin: 1.5rem 0; }
-            .feature { margin: 0.5rem 0; }
-            button {
-                background: white;
-                color: #667eea;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 25px;
-                cursor: pointer;
-                font-weight: 600;
-                margin: 0.5rem;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="icon">📶</div>
-            <h1>离线模式</h1>
-            <p>网络连接已断开</p>
-            
-            <div class="features">
-                <div class="feature">✓ 查看之前加载的题目</div>
-                <div class="feature">✓ 复习已缓存的内容</div>
-                <div class="feature">✓ 在本地记录学习进度</div>
-            </div>
-            
-            <button onclick="window.location.reload()">重新加载</button>
-        </div>
-        
-        <script>
-            window.addEventListener('online', () => window.location.reload());
-        </script>
-    </body>
-    </html>`,
-    {
-      status: 200,
-      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+// ========== 页面导航请求处理 ==========
+async function handleNavigationRequest(request) {
+  try {
+    const networkResponse = await fetch(request);
+    
+    if (networkResponse.ok) {
+      return networkResponse;
     }
-  );
+    
+    throw new Error(`HTTP ${networkResponse.status}`);
+  } catch (error) {
+    console.log('📶 导航请求失败，显示离线页面');
+    
+    // 返回缓存的离线页面
+    const cachedPage = await caches.match(OFFLINE_PAGE);
+    if (cachedPage) {
+      return cachedPage;
+    }
+    
+    // 创建简单的离线页面
+    return createOfflinePage();
+  }
 }
 
-/**
- * 创建图片占位符
- */
+// ========== 消息处理 ==========
+self.addEventListener('message', (event) => {
+  const { data } = event;
+  
+  switch (data.type) {
+    case 'CACHE_QUESTIONS':
+      handleCacheQuestions(data.payload);
+      break;
+      
+    case 'GET_CACHE_STATUS':
+      handleGetCacheStatus(event);
+      break;
+      
+    case 'CLEAR_CACHE':
+      handleClearCache();
+      break;
+      
+    case 'SKIP_WAITING':
+      self.skipWaiting();
+      break;
+  }
+});
+
+// ========== 处理题目数据缓存 ==========
+async function handleCacheQuestions(questions) {
+  try {
+    const cache = await caches.open(DATA_CACHE_NAME);
+    const cacheData = {
+      questions: questions.slice(0, 30), // 限制30道题目
+      timestamp: Date.now(),
+      version: '2.0.0',
+      count: Math.min(questions.length, 30)
+    };
+    
+    // 缓存到多个键以便不同用途
+    const responses = [
+      cache.put(
+        new Request('/offline-data?key=questions'),
+        new Response(JSON.stringify(cacheData))
+      ),
+      cache.put(
+        new Request('/api/cached/questions'),
+        new Response(JSON.stringify(cacheData))
+      )
+    ];
+    
+    await Promise.all(responses);
+    
+    console.log('✅ 题目数据缓存成功:', cacheData.count, '道题目');
+    
+    // 通知客户端
+    self.clients.matchAll().then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({
+          type: 'CACHE_UPDATED',
+          count: cacheData.count,
+          timestamp: cacheData.timestamp
+        });
+      });
+    });
+    
+  } catch (error) {
+    console.error('❌ 题目数据缓存失败:', error);
+  }
+}
+
+// ========== 获取缓存状态 ==========
+async function handleGetCacheStatus(event) {
+  try {
+    const cache = await caches.open(DATA_CACHE_NAME);
+    const response = await cache.match('/offline-data?key=questions');
+    
+    if (response) {
+      const data = await response.json();
+      event.ports[0].postMessage({
+        status: 'success',
+        data: {
+          hasCache: true,
+          count: data.count,
+          timestamp: data.timestamp,
+          version: data.version
+        }
+      });
+    } else {
+      event.ports[0].postMessage({
+        status: 'success',
+        data: {
+          hasCache: false,
+          count: 0,
+          timestamp: null
+        }
+      });
+    }
+  } catch (error) {
+    event.ports[0].postMessage({
+      status: 'error',
+      error: error.message
+    });
+  }
+}
+
+// ========== 清理缓存 ==========
+async function handleClearCache() {
+  try {
+    const cache = await caches.open(DATA_CACHE_NAME);
+    const keys = await cache.keys();
+    
+    await Promise.all(keys.map(key => cache.delete(key)));
+    
+    console.log('✅ 缓存数据清理完成');
+    
+    self.clients.matchAll().then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({
+          type: 'CACHE_CLEARED'
+        });
+      });
+    });
+  } catch (error) {
+    console.error('❌ 缓存清理失败:', error);
+  }
+}
+
+// ========== 工具函数 ==========
+function createOfflinePage() {
+  const html = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>离线模式 - 八股精Mock</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 2rem;
+            border-radius: 16px;
+            backdrop-filter: blur(10px);
+            max-width: 450px;
+            margin: 1rem;
+        }
+        .icon { font-size: 4rem; margin-bottom: 1rem; }
+        h1 { margin-bottom: 1rem; }
+        .features { text-align: left; margin: 1.5rem 0; }
+        .feature { margin: 0.5rem 0; }
+        button {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 0.5rem;
+        }
+        .cache-info {
+            background: rgba(255,255,255,0.2);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📶</div>
+        <h1>离线模式</h1>
+        <p>网络连接已断开，但您仍然可以：</p>
+        
+        <div class="features">
+            <div class="feature">✓ 查看缓存的题目</div>
+            <div class="feature">✓ 复习已学习的内容</div>
+            <div class="feature">✓ 在本地记录进度</div>
+        </div>
+        
+        <div class="cache-info" id="cacheInfo">
+            正在检查缓存数据...
+        </div>
+        
+        <button onclick="window.location.reload()">重新加载</button>
+        <button onclick="checkCache()">检查缓存</button>
+    </div>
+    
+    <script>
+        window.addEventListener('online', () => window.location.reload());
+        
+        async function checkCache() {
+            try {
+                const response = await fetch('/offline-data?key=questions');
+                const data = await response.json();
+                
+            } catch (error) {
+                document.getElementById('cacheInfo').innerHTML = 
+                    '❌ 无法访问缓存数据';
+            }
+        }
+        
+        // 页面加载时检查缓存
+        checkCache();
+    </script>
+</body>
+</html>`;
+  
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+  });
+}
+
 function createImagePlaceholder() {
   const svg = `<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
     <rect width="100" height="100" fill="#f5f5f5"/>
-    <text x="50" y="55" text-anchor="middle" fill="#999" font-size="12">图片</text>
+    <text x="50" y="55" text-anchor="middle" fill="#999" font-size="12">图片加载中</text>
   </svg>`;
   
   return new Response(svg, {
