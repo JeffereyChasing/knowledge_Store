@@ -9784,6 +9784,108 @@ code {
 }
 
 /* 其他现有样式保持不变... */
+
+
+/* 离线模式样式 */
+.offline-questions-container {
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+
+.offline-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 12px;
+}
+
+.offline-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.cache-stats {
+  background: rgba(255,255,255,0.2);
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-block;
+  margin-top: 12px;
+}
+
+.cached-questions-list {
+  display: grid;
+  gap: 16px;
+}
+
+.cached-question-item {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 4px solid #4ade80;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.cached-question-item h4 {
+  margin: 0 0 12px 0;
+  color: #1f2937;
+}
+
+.question-content {
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.offline-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: #4ade80;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.no-cached-data {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+}
+
+.cache-indicator {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+/* 网络状态指示器 */
+.network-status {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 1000;
+}
+
+.network-status.online {
+  background: #4ade80;
+  color: white;
+}
+
+.network-status.offline {
+  background: #f59e0b;
+  color: white;
+}
 /* CategoryDetailPage.css */
 :root {
   --primary: #6366f1;
@@ -14462,4 +14564,4 @@ code {
 }
 
 
-/*# sourceMappingURL=main.83f6adb9.css.map*/
+/*# sourceMappingURL=main.9e4bf2d1.css.map*/

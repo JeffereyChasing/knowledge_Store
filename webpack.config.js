@@ -39,7 +39,7 @@ module.exports = (env, argv) => {
       rules: [
         {
           test: /\.(js|jsx)$/,
-          exclude: /(node_modules|sw\.js)/,
+          exclude: /(node_modules|sw\.js)/, // 排除 sw.js
           use: {
             loader: 'babel-loader',
             options: {
@@ -101,8 +101,10 @@ module.exports = (env, argv) => {
     },
     
     plugins: [
+      // 清理输出目录
       new CleanWebpackPlugin(),
       
+      // HTML 模板
       new HtmlWebpackPlugin({
         template: './public/index.html',
         favicon: './public/favicon.ico',
@@ -120,38 +122,34 @@ module.exports = (env, argv) => {
         } : false
       }),
       
-      // 复制静态文件 - 关键修复：确保文件被正确复制
+      // 复制静态文件（sw.js, manifest.json 等）
       new CopyWebpackPlugin({
         patterns: [
           {
             from: 'public/sw.js',
-            to: 'sw.js',
-            toType: 'file'
+            to: 'sw.js'
           },
           {
-            from: 'public/offline.html',
-            to: 'offline.html',
-            toType: 'file'
+            from: 'public/offline.html',  // 新增离线页面
+            to: 'offline.html'
           },
           {
             from: 'public/manifest.json',
-            to: 'manifest.json',
-            toType: 'file'
-          },
-          {
-            from: 'public/favicon.ico',
-            to: 'favicon.ico',
-            toType: 'file'
+            to: 'manifest.json'
           },
           {
             from: 'public/icons',
             to: 'icons',
-            noErrorOnMissing: true,
-            toType: 'dir'
+            noErrorOnMissing: true // 如果 icons 目录不存在也不报错
+          },
+          {
+            from: 'public/favicon.ico',
+            to: 'favicon.ico'
           }
         ]
       }),
       
+      // 环境变量注入
       new Dotenv({
         path: './.env',
         safe: false,
@@ -159,11 +157,13 @@ module.exports = (env, argv) => {
         defaults: false
       }),
       
+      // 手动定义一些构建时常量
       new webpack.DefinePlugin({
         'process.env.NODE_ENV': JSON.stringify(isProduction ? 'production' : 'development'),
         'process.env.BUILD_TIME': JSON.stringify(new Date().toISOString())
       }),
 
+      // 生产环境添加 CSS 提取插件
       ...(isProduction ? [
         new MiniCssExtractPlugin({
           filename: 'static/css/[name].[contenthash:8].css',
@@ -177,12 +177,14 @@ module.exports = (env, argv) => {
       splitChunks: {
         chunks: 'all',
         cacheGroups: {
+          // 第三方库单独打包
           vendor: {
             test: /[\\/]node_modules[\\/]/,
             name: 'vendors',
             chunks: 'all',
             priority: 20
           },
+          // 公共代码单独打包
           common: {
             name: 'common',
             minChunks: 2,
@@ -197,50 +199,15 @@ module.exports = (env, argv) => {
       }
     },
     
-    // 关键修复：修正 historyApiFallback 配置
     devServer: {
       static: {
-        directory: path.join(__dirname, 'dist'),
-        publicPath: '/',
-        // 添加静态文件服务配置
-        staticOptions: {
-          setHeaders: (res, path) => {
-            // 确保正确的 MIME 类型
-            if (path.endsWith('.html')) {
-              res.setHeader('Content-Type', 'text/html');
-            } else if (path.endsWith('.js')) {
-              res.setHeader('Content-Type', 'application/javascript');
-            } else if (path.endsWith('.css')) {
-              res.setHeader('Content-Type', 'text/css');
-            } else if (path.endsWith('.json')) {
-              res.setHeader('Content-Type', 'application/json');
-            }
-          }
-        }
+        directory: path.join(__dirname, 'dist')
       },
       port: 3000,
       open: true,
       hot: true,
-      // 关键修复：只对 SPA 路由进行回退，不干扰静态文件
-      historyApiFallback: {
-        rewrites: [
-          // 排除已知的静态文件
-          { from: /^\/sw\.js$/, to: '/sw.js' },
-          { from: /^\/offline\.html$/, to: '/offline.html' },
-          { from: /^\/manifest\.json$/, to: '/manifest.json' },
-          { from: /^\/favicon\.ico$/, to: '/favicon.ico' },
-          { from: /^\/icons\/.*$/, to: (context) => context.parsedUrl.pathname },
-          { from: /^\/static\/.*$/, to: (context) => context.parsedUrl.pathname },
-          // 其他所有路由返回 index.html（SPA 路由）
-          { from: /./, to: '/index.html' }
-        ]
-      },
-      compress: true,
-      // 添加开发服务器配置，确保文件服务正确
-      devMiddleware: {
-        publicPath: '/',
-        writeToDisk: false
-      }
+      historyApiFallback: true,
+      compress: true
     },
     
     devtool: isProduction ? 'source-map' : 'eval-cheap-module-source-map',
