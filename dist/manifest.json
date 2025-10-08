@@ -1,0 +1,18 @@
+{
+  "short_name": "八股精Mock",
+  "name": "八股精Mock - 面试准备工具",
+  "description": "专业的面试准备和八股文学习平台",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "scope": "/"
+}

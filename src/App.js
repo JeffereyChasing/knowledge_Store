@@ -11,6 +11,7 @@ import AuthModal from './components/AuthModal';
 import UserSettingsModal from './components/UserSettingsModal';
 import ReviewPage from './pages/ReviewPage';
 import './App.css';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 // 在组件外部创建 QueryClient 实例
 const queryClient = new QueryClient({
@@ -87,6 +88,8 @@ function App() {
           isOpen={isUserSettingsOpen}
           onClose={() => setIsUserSettingsOpen(false)}
         />
+                <PWAInstallPrompt />
+
       </Router>
     </QueryClientProvider>
   );

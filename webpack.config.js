@@ -3,6 +3,8 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const webpack = require('webpack');
 const Dotenv = require('dotenv-webpack');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
@@ -37,7 +39,7 @@ module.exports = (env, argv) => {
       rules: [
         {
           test: /\.(js|jsx)$/,
-          exclude: /node_modules/,
+          exclude: /(node_modules|sw\.js)/,
           use: {
             loader: 'babel-loader',
             options: {
@@ -47,16 +49,12 @@ module.exports = (env, argv) => {
                     browsers: ['last 2 versions', 'not dead', 'not < 2%']
                   },
                   useBuiltIns: 'entry',
-                  corejs: 3,
-                  modules: false
+                  corejs: 3
                 }],
-                '@babel/preset-react'
+                ['@babel/preset-react', { runtime: 'automatic' }]
               ],
               plugins: [
-                isProduction && [
-                  'babel-plugin-transform-react-remove-prop-types',
-                  { removeImport: true }
-                ]
+                isProduction && 'babel-plugin-transform-react-remove-prop-types'
               ].filter(Boolean)
             }
           }
@@ -66,25 +64,14 @@ module.exports = (env, argv) => {
         {
           test: /\.css$/i,
           use: [
-            'style-loader',
+            isProduction ? MiniCssExtractPlugin.loader : 'style-loader',
             {
               loader: 'css-loader',
               options: {
                 modules: false,
-                importLoaders: 1,
-                esModule: false
+                importLoaders: 1
               }
             }
-          ]
-        },
-        
-        // SCSS/SASS 配置（如果需要）
-        {
-          test: /\.(scss|sass)$/i,
-          use: [
-            'style-loader',
-            'css-loader',
-            'sass-loader'
           ]
         },
         
@@ -94,7 +81,7 @@ module.exports = (env, argv) => {
           type: 'asset',
           parser: {
             dataUrlCondition: {
-              maxSize: 8 * 1024 // 8kb 以下转 base64
+              maxSize: 8 * 1024
             }
           },
           generator: {
@@ -109,24 +96,13 @@ module.exports = (env, argv) => {
           generator: {
             filename: 'static/fonts/[name].[hash:8][ext]'
           }
-        },
-        
-        // 其他文件
-        {
-          test: /\.(pdf|doc|docx|xls|xlsx)$/i,
-          type: 'asset/resource',
-          generator: {
-            filename: 'static/files/[name].[hash:8][ext]'
-          }
         }
       ]
     },
     
     plugins: [
-      // 清理输出目录
       new CleanWebpackPlugin(),
       
-      // HTML 模板
       new HtmlWebpackPlugin({
         template: './public/index.html',
         favicon: './public/favicon.ico',
@@ -141,32 +117,58 @@ module.exports = (env, argv) => {
           minifyJS: true,
           minifyCSS: true,
           minifyURLs: true
-        } : false,
-        templateParameters: {
-          // 可以在这里注入 HTML 模板变量
-        }
+        } : false
       }),
       
-      // 环境变量注入
+      // 复制静态文件 - 关键修复：确保文件被正确复制
+      new CopyWebpackPlugin({
+        patterns: [
+          {
+            from: 'public/sw.js',
+            to: 'sw.js',
+            toType: 'file'
+          },
+          {
+            from: 'public/offline.html',
+            to: 'offline.html',
+            toType: 'file'
+          },
+          {
+            from: 'public/manifest.json',
+            to: 'manifest.json',
+            toType: 'file'
+          },
+          {
+            from: 'public/favicon.ico',
+            to: 'favicon.ico',
+            toType: 'file'
+          },
+          {
+            from: 'public/icons',
+            to: 'icons',
+            noErrorOnMissing: true,
+            toType: 'dir'
+          }
+        ]
+      }),
+      
       new Dotenv({
         path: './.env',
-        safe: false, // 如果 .env 文件不存在也不报错
-        systemvars: true, // 同时读取系统环境变量
-        defaults: false,
-        expand: true, // 支持变量扩展
-        silent: false // 显示加载信息
+        safe: false,
+        systemvars: true,
+        defaults: false
       }),
       
-      // 手动定义一些构建时常量（备用）
       new webpack.DefinePlugin({
         'process.env.NODE_ENV': JSON.stringify(isProduction ? 'production' : 'development'),
-        'process.env.BUILD_TIME': JSON.stringify(new Date().toISOString()),
-        'process.env.PUBLIC_URL': JSON.stringify('/')
+        'process.env.BUILD_TIME': JSON.stringify(new Date().toISOString())
       }),
-      
-      // 生产环境优化插件
+
       ...(isProduction ? [
-        // 可以添加其他生产环境插件
+        new MiniCssExtractPlugin({
+          filename: 'static/css/[name].[contenthash:8].css',
+          chunkFilename: 'static/css/[name].[contenthash:8].chunk.css'
+        })
       ] : [])
     ],
     
@@ -175,14 +177,12 @@ module.exports = (env, argv) => {
       splitChunks: {
         chunks: 'all',
         cacheGroups: {
-          // 第三方库单独打包
           vendor: {
             test: /[\\/]node_modules[\\/]/,
             name: 'vendors',
             chunks: 'all',
             priority: 20
           },
-          // 公共代码单独打包
           common: {
             name: 'common',
             minChunks: 2,
@@ -193,27 +193,53 @@ module.exports = (env, argv) => {
         }
       },
       runtimeChunk: {
-        name: entrypoint => `runtime-${entrypoint.name}`
+        name: 'runtime'
       }
     },
     
+    // 关键修复：修正 historyApiFallback 配置
     devServer: {
       static: {
-        directory: path.join(__dirname, 'dist')
+        directory: path.join(__dirname, 'dist'),
+        publicPath: '/',
+        // 添加静态文件服务配置
+        staticOptions: {
+          setHeaders: (res, path) => {
+            // 确保正确的 MIME 类型
+            if (path.endsWith('.html')) {
+              res.setHeader('Content-Type', 'text/html');
+            } else if (path.endsWith('.js')) {
+              res.setHeader('Content-Type', 'application/javascript');
+            } else if (path.endsWith('.css')) {
+              res.setHeader('Content-Type', 'text/css');
+            } else if (path.endsWith('.json')) {
+              res.setHeader('Content-Type', 'application/json');
+            }
+          }
+        }
       },
       port: 3000,
       open: true,
       hot: true,
+      // 关键修复：只对 SPA 路由进行回退，不干扰静态文件
       historyApiFallback: {
-        disableDotRule: true,
-        index: '/'
+        rewrites: [
+          // 排除已知的静态文件
+          { from: /^\/sw\.js$/, to: '/sw.js' },
+          { from: /^\/offline\.html$/, to: '/offline.html' },
+          { from: /^\/manifest\.json$/, to: '/manifest.json' },
+          { from: /^\/favicon\.ico$/, to: '/favicon.ico' },
+          { from: /^\/icons\/.*$/, to: (context) => context.parsedUrl.pathname },
+          { from: /^\/static\/.*$/, to: (context) => context.parsedUrl.pathname },
+          // 其他所有路由返回 index.html（SPA 路由）
+          { from: /./, to: '/index.html' }
+        ]
       },
       compress: true,
-      client: {
-        overlay: {
-          errors: true,
-          warnings: false
-        }
+      // 添加开发服务器配置，确保文件服务正确
+      devMiddleware: {
+        publicPath: '/',
+        writeToDisk: false
       }
     },
     
@@ -223,14 +249,6 @@ module.exports = (env, argv) => {
       maxAssetSize: 512000,
       maxEntrypointSize: 512000,
       hints: isProduction ? 'warning' : false
-    },
-    
-    stats: {
-      colors: true,
-      modules: false,
-      children: false,
-      chunks: false,
-      chunkModules: false
     }
   };
 };
