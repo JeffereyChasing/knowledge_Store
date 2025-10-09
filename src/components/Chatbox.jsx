@@ -72,29 +72,18 @@ const Chatbox = ({ onNavigate, categories, questions, currentUser }) => {
     setIsTyping(true);
     
     try {
+      // 直接使用 detectIntent，它现在返回适配的格式
       const response = await DialogflowService.detectIntent(userMessage, currentUser?.id);
-      
-      setIsTyping(false);
-      
-      return {
-        text: response.text,
-        quickReplies: [
-          '查看分类',
-          '搜索题目', 
-          '开始复习',
-          '学习统计'
-        ],
-        actions: []
-      };
-      
+      return response;
     } catch (error) {
       console.error('Message processing error:', error);
-      setIsTyping(false);
-      
       return {
         text: '网络错误，请稍后重试。',
-        quickReplies: ['查看分类', '搜索题目', '开始复习', '学习统计']
+        quickReplies: ['查看分类', '搜索题目', '开始复习', '学习统计'],
+        actions: []
       };
+    } finally {
+      setIsTyping(false);
     }
   };
 

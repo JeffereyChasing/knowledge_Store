@@ -1,199 +1,198 @@
-// src/services/dialogflowService.js
-const PROXY_BASE_URL = 'http://localhost:3001';
+// services/dialogflowService.js
+import { jwtDecode } from 'jwt-decode';
 
-class DialogflowService {
-  constructor() {
-    this.baseUrl = PROXY_BASE_URL;
-    this.sessions = new Map();
+// 环境变量配置
+const PROJECT_ID = process.env.REACT_APP_DIALOGFLOW_PROJECT_ID;
+const CLIENT_EMAIL = process.env.REACT_APP_DIALOGFLOW_CLIENT_EMAIL;
+const PRIVATE_KEY = process.env.REACT_APP_DIALOGFLOW_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+/**
+ * 生成 JWT Token
+ */
+const generateJWT = async () => {
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT'
+  };
+
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: CLIENT_EMAIL,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now
+  };
+
+  // 编码 header 和 payload
+  const encodedHeader = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const encodedPayload = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  
+  const signatureInput = `${encodedHeader}.${encodedPayload}`;
+  
+  // 使用 Web Crypto API 进行签名
+  const privateKey = await crypto.subtle.importKey(
+    'pkcs8',
+    str2ab(atob(PRIVATE_KEY.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').replace(/\n/g, ''))),
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      hash: { name: 'SHA-256' }
+    },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    privateKey,
+    new TextEncoder().encode(signatureInput)
+  );
+
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+
+  return `${signatureInput}.${encodedSignature}`;
+};
+
+/**
+ * 获取访问令牌
+ */
+const getAccessToken = async () => {
+  try {
+    const jwt = await generateJWT();
+    
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
+    });
+
+    if (!response.ok) {
+      throw new Error(`Token request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error('获取访问令牌失败:', error);
+    throw error;
+  }
+};
+
+/**
+ * 向 Dialogflow 发送请求
+ */
+export const detectIntent = async (text, sessionId = 'react-client-session') => {
+  if (!text.trim()) {
+    throw new Error('Query text cannot be empty');
   }
 
-  // 检查服务器状态
-  async checkServerStatus() {
-    try {
-      console.log('🔍 检查代理服务器状态...');
-      const response = await fetch(`${this.baseUrl}/api/health`);
-      const data = await response.json();
-      console.log('📊 服务器状态:', data);
-      return response.ok;
-    } catch (error) {
-      console.error('❌ 代理服务器未响应:', error.message);
-      return false;
-    }
-  }
+  try {
+    const accessToken = await getAccessToken();
+    const sessionPath = `projects/${PROJECT_ID}/agent/sessions/${sessionId}`;
 
-  // 发送欢迎消息
-  async sendWelcome(userId) {
-    console.log('🔄 开始发送欢迎消息...');
-    console.log('用户ID:', userId);
-    console.log('目标URL:', `${this.baseUrl}/api/dialogflow/welcome`);
-
-    // 先检查服务器状态
-    const isServerRunning = await this.checkServerStatus();
-    if (!isServerRunning) {
-      console.error('❌ 代理服务器未运行');
-      return this.getFallbackWelcome();
-    }
-
-    try {
-      console.log('📤 发送欢迎消息请求...');
-      
-      const requestBody = {
-        userId: userId
-      };
-      console.log('请求体:', requestBody);
-
-      const response = await fetch(`${this.baseUrl}/api/dialogflow/welcome`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+    const request = {
+      queryInput: {
+        text: {
+          text: text,
+          languageCode: 'zh-CN',
         },
-        body: JSON.stringify(requestBody)
-      });
+      },
+    };
 
-      console.log('📥 收到响应状态:', response.status, response.statusText);
+    const API_URL = `https://dialogflow.googleapis.com/v2/${sessionPath}:detectIntent`;
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json; charset=utf-8',
+      },
+      body: JSON.stringify(request),
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ HTTP 错误:', response.status, errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ 欢迎消息响应数据:', data);
-      
-      if (!data.success) {
-        console.warn('⚠️ 欢迎消息返回失败:', data.error);
-        return this.getFallbackWelcome();
-      }
-
-      console.log('🎉 欢迎消息成功');
-      return {
-        text: data.text,
-        intent: data.intent,
-        success: true
-      };
-
-    } catch (error) {
-      console.error('💥 欢迎消息请求失败:', error.message);
-      console.error('错误堆栈:', error.stack);
-      return this.getFallbackWelcome();
-    }
-  }
-
-  // 检测意图
-  async detectIntent(message, userId) {
-    console.log('🔄 开始检测意图...');
-    console.log('消息:', message);
-    console.log('用户ID:', userId);
-
-    // 先检查服务器状态
-    const isServerRunning = await this.checkServerStatus();
-    if (!isServerRunning) {
-      console.error('❌ 代理服务器未运行');
-      return this.getFallbackResponse(message);
+    if (!response.ok) {
+      const errorDetails = await response.text();
+      throw new Error(`Dialogflow API request failed: ${response.status} ${response.statusText}. ${errorDetails}`);
     }
 
-    try {
-      console.log('📤 发送聊天消息请求...');
-      
-      const requestBody = {
-        message: message,
-        userId: userId
-      };
-      console.log('请求体:', requestBody);
-
-      const response = await fetch(`${this.baseUrl}/api/dialogflow/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      console.log('📥 收到响应状态:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ HTTP 错误:', response.status, errorText);
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ 聊天消息响应数据:', data);
-      
-      if (!data.success) {
-        console.warn('⚠️ 聊天消息返回失败:', data.error);
-        return this.getFallbackResponse(message);
-      }
-
-      console.log('🎉 聊天消息成功');
-      return {
-        text: data.text,
-        intent: data.intent,
-        confidence: data.confidence,
-        parameters: data.parameters,
-        success: true
-      };
-
-    } catch (error) {
-      console.error('💥 聊天消息请求失败:', error.message);
-      return this.getFallbackResponse(message);
-    }
-  }
-
-  // 回退欢迎消息
-  getFallbackWelcome() {
-    console.log('🔄 使用回退欢迎消息');
+    const data = await response.json();
+    
     return {
-      text: '👋 你好！我是你的学习助手，我可以帮你：\n\n📚 管理学习分类和题目\n🔍 搜索特定内容\n🔄 安排复习计划\n📊 查看学习统计\n\n请问需要什么帮助？',
-      intent: 'welcome_fallback',
-      success: true
+      text: data.queryResult.fulfillmentText || '抱歉，我没有理解您的意思。',
+      actions: extractActions(data.queryResult),
+      quickReplies: ['查看分类', '搜索题目', '开始复习', '学习统计']
+    };
+
+  } catch (error) {
+    console.error('Dialogflow 请求失败:', error);
+    throw error;
+  }
+};
+
+/**
+ * 发送欢迎消息
+ */
+export const sendWelcome = async (userId) => {
+  try {
+    const response = await detectIntent('你好', `user-${userId || 'anonymous'}`);
+    return response;
+  } catch (error) {
+    console.error('Welcome message failed, using fallback:', error);
+    return {
+      text: `👋 你好！我是你的学习助手，我可以帮你：\n\n• 导航到不同功能页面\n• 查找分类和题目\n• 管理复习计划\n• 查看学习统计\n\n请问需要什么帮助？`,
+      quickReplies: ['查看所有分类', '需要复习的题目', '学习统计', '创建新分类'],
+      actions: []
     };
   }
+};
 
-  // 回退响应
-  getFallbackResponse(message) {
-    console.log('🔄 使用回退响应');
-    const msg = message.toLowerCase();
-    
-    if (msg.includes('分类') || msg.includes('类别')) {
-      return {
-        text: '📚 正在加载学习分类...',
-        intent: 'categories_fallback',
-        success: true
-      };
-    } else if (msg.includes('搜索') || msg.includes('查找') || msg.includes('找题')) {
-      return {
-        text: '🔍 请告诉我你想搜索什么题目？',
-        intent: 'search_fallback',
-        success: true
-      };
-    } else if (msg.includes('复习')) {
-      return {
-        text: '🔄 开始复习！我会安排合适的学习计划。',
-        intent: 'review_fallback',
-        success: true
-      };
-    } else if (msg.includes('统计') || msg.includes('数据')) {
-      return {
-        text: '📊 正在生成学习统计报告...',
-        intent: 'stats_fallback',
-        success: true
-      };
-    } else if (msg.includes('你好') || msg.includes('hello') || msg.includes('hi')) {
-      return {
-        text: '👋 你好！我是学习助手，可以帮你管理分类、搜索题目、安排复习。',
-        intent: 'greeting_fallback',
-        success: true
-      };
-    } else {
-      return {
-        text: '🤔 我不太明白。你可以问我关于分类、题目、复习或统计的问题。',
-        intent: 'general_fallback',
-        success: true
-      };
-    }
+/**
+ * 从响应中提取动作
+ */
+const extractActions = (queryResult) => {
+  const actions = [];
+  
+  if (queryResult.intent?.displayName === 'SearchQuestions') {
+    actions.push({
+      type: 'function',
+      target: 'searchQuestions',
+      label: '🔍 开始搜索'
+    });
   }
-}
+  
+  actions.push(
+    {
+      type: 'navigate',
+      target: '/categories',
+      label: '📚 查看分类'
+    },
+    {
+      type: 'navigate', 
+      target: '/review',
+      label: '🔄 开始复习'
+    }
+  );
+  
+  return actions;
+};
 
-export default new DialogflowService();
+/**
+ * 字符串转 ArrayBuffer
+ */
+const str2ab = (str) => {
+  const buf = new ArrayBuffer(str.length);
+  const bufView = new Uint8Array(buf);
+  for (let i = 0; i < str.length; i++) {
+    bufView[i] = str.charCodeAt(i);
+  }
+  return buf;
+};
+
+export default {
+  detectIntent,
+  sendWelcome
+};
