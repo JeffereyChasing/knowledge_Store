@@ -962,22 +962,6 @@
   gap: 16px;
 }
 
-.back-to-list-btn {
-  background: none;
-  border: 1px solid #d1d5db;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #6b7280;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.back-to-list-btn:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
 .expanded-title {
   display: flex;
   align-items: center;

@@ -482,20 +482,22 @@ code {
   
   .cache-header h2 {
     font-size: 2.5rem;
-    color: #333;
+    color: rgb(108, 104, 104);
     margin-bottom: 12px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
+    background: linear-gradient(135deg, #ffffff, #e2e8ff); /* 改为浅色渐变 */
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* 添加阴影增强可读性 */
   }
   
   .cache-header p {
-    color: #666;
+    color: white; /* 改为浅紫色 */
     font-size: 1.1rem;
     max-width: 600px;
     margin: 0 auto;
     line-height: 1.6;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
   }
   
   .cache-stats-cards {
@@ -11978,22 +11980,6 @@ code {
   gap: 16px;
 }
 
-.back-to-list-btn {
-  background: none;
-  border: 1px solid #d1d5db;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #6b7280;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.back-to-list-btn:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-}
-
 .expanded-title {
   display: flex;
   align-items: center;
@@ -16196,4 +16182,4 @@ code {
     }
   }
 
-/*# sourceMappingURL=main.4f51ba30.css.map*/
+/*# sourceMappingURL=main.5e5d48a3.css.map*/

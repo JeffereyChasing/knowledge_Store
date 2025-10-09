@@ -604,10 +604,50 @@ const sortedQuestions = useMemo(() => {
       <header className="modern-header">
         <div className="container">
           <div className="header-content">
-            <button onClick={handleBack} className="back-button">
-              <span className="back-icon">←</span>
-              返回知识库
-            </button>
+          <button 
+  onClick={handleBack} 
+  className="back-button"
+  style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '10px 20px',
+    backgroundColor: 'transparent',
+    color: '#667eea',
+    border: '2px solid #667eea',
+    borderRadius: '8px',
+    fontSize: '16px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+    textDecoration: 'none',
+    fontFamily: 'inherit'
+  }}
+  onMouseEnter={(e) => {
+    e.target.style.backgroundColor = '#667eea';
+    e.target.style.color = 'white';
+    e.target.style.transform = 'translateY(-2px)';
+    e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
+  }}
+  onMouseLeave={(e) => {
+    e.target.style.backgroundColor = 'transparent';
+    e.target.style.color = '#667eea';
+    e.target.style.transform = 'translateY(0)';
+    e.target.style.boxShadow = 'none';
+  }}
+>
+  <span 
+    className="back-icon"
+    style={{
+      fontSize: '18px',
+      fontWeight: 'bold',
+      transition: 'transform 0.3s ease'
+    }}
+  >
+    ←
+  </span>
+  返回知识库
+</button>
             <div className="category-hero">
               <div className="category-badge">
                 <span className="category-emoji">📚</span>
