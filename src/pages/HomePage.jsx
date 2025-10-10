@@ -17,8 +17,8 @@ import {
   deleteCategory,
 } from "../services/categoryService";
 import { getAllQuestions, updateQuestion } from "../services/questionService";
-import { cacheService } from "../services/cacheService"; // 从正确的文件导入
-import { offlineService } from "../services/offlineService"; // 从正确的文件导入
+import { cacheService } from "../services/cacheService";
+import { offlineService } from "../services/offlineService";
 import OfflineIndicator from "../components/OfflineIndicator";
 import AV from "leancloud-storage";
 import CacheManagementTab from '../components/CacheManagementTab';
@@ -52,8 +52,6 @@ const queryClient = new QueryClient({
   },
 });
 
-
-
 const HomePage = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,7 +72,7 @@ const HomePage = () => {
   const [deletingCategory, setDeletingCategory] = useState(false);
 
   // 复习提醒相关状态
-  const [reviewThreshold, setReviewThreshold] = useState(7); // 默认7天
+  const [reviewThreshold, setReviewThreshold] = useState(7);
   const [reviewQuestions, setReviewQuestions] = useState([]);
   const [showReviewSettings, setShowReviewSettings] = useState(false);
 
@@ -100,16 +98,91 @@ const HomePage = () => {
 
   // 添加状态
   const [cacheSettings, setCacheSettings] = useState({
-    cacheLimit: cacheService.getCacheLimit(), // 从服务获取当前限制
+    cacheLimit: cacheService.getCacheLimit(),
     autoCache: true,
   });
 
+  // 新增：分类引用，用于聊天机器人触发
+  const categoryRefs = useRef({});
 
+  // 新增：处理分类触发
+  // 在 Homepage.jsx 的 handleTriggerCategory 函数中添加调试
 
+// 处理分类触发
+const handleTriggerCategory = (categoryName, buttonId) => {
+  console.log(`🎯 触发分类: ${categoryName}, 按钮ID: ${buttonId}`);
+  console.log(`📊 当前分类列表:`, categories.map(cat => cat.name));
   
+  // 首先切换到分类标签页
+  setActiveTab("categories");
+  
+  // 延迟执行，确保分类页面已经渲染
+  setTimeout(() => {
+    // 找到匹配的分类 - 增强匹配逻辑
+    const targetCategory = categories.find(cat => {
+      const catNameLower = cat.name.toLowerCase();
+      const searchNameLower = categoryName.toLowerCase();
+      
+      // 多种匹配方式
+      const exactMatch = catNameLower === searchNameLower;
+      const containsMatch = catNameLower.includes(searchNameLower) || searchNameLower.includes(catNameLower);
+      const fuzzyMatch = catNameLower.replace(/\s+/g, '') === searchNameLower.replace(/\s+/g, '');
+      
+      console.log(`🔍 匹配检查: ${cat.name}`, {
+        exactMatch,
+        containsMatch,
+        fuzzyMatch,
+        catNameLower,
+        searchNameLower
+      });
+      
+      return exactMatch || containsMatch || fuzzyMatch;
+    });
+    
+    if (targetCategory) {
+      console.log(`✅ 找到分类: ${targetCategory.name}`, targetCategory);
+      
+      // 如果有对应的分类卡片引用，模拟点击
+      const categoryKey = `category-${targetCategory.id}`;
+      if (categoryRefs.current[categoryKey]) {
+        console.log(`🖱️ 模拟点击分类卡片: ${targetCategory.name}`);
+        categoryRefs.current[categoryKey].click();
+      } else {
+        // 如果没有引用，直接导航到分类页面
+        console.log(`🔗 直接导航到分类: ${targetCategory.name}`);
+        handleCategoryClick(targetCategory.id);
+      }
+      
+      // 显示成功消息
+      setSyncMessage(`已为您打开 ${targetCategory.name} 分类`);
+      setTimeout(() => setSyncMessage(""), 3000);
+    } else {
+      console.log(`❌ 未找到匹配的分类: ${categoryName}`);
+      console.log(`💡 可用的分类:`, categories.map(c => c.name));
+      
+      // 尝试更宽松的匹配
+      const looseMatch = categories.find(cat => 
+        cat.name.toLowerCase().includes(categoryName.toLowerCase().substring(0, 3))
+      );
+      
+      if (looseMatch) {
+        console.log(`🔍 宽松匹配找到: ${looseMatch.name}`);
+        const categoryKey = `category-${looseMatch.id}`;
+        if (categoryRefs.current[categoryKey]) {
+          categoryRefs.current[categoryKey].click();
+          setSyncMessage(`已为您打开相近分类: ${looseMatch.name}`);
+        } else {
+          handleCategoryClick(looseMatch.id);
+        }
+      } else {
+        setSyncMessage(`未找到"${categoryName}"分类，请检查分类名称`);
+      }
+      setTimeout(() => setSyncMessage(""), 3000);
+    }
+  }, 100);
+};
 
-  // 新增：缓存管理函数
-  // 修改预缓存函数
+  // 预缓存函数
   const preCacheQuestions = useCallback(async () => {
     if (!currentUser) return;
 
@@ -117,13 +190,11 @@ const HomePage = () => {
       console.log("🔄 通过 Service Worker 缓存题目...");
       setSyncing(true);
 
-      // 设置缓存限制
       cacheService.setCacheLimit(cacheSettings.cacheLimit);
 
       const success = await cacheService.cacheQuestions(questions);
 
       if (success) {
-        // 更新缓存状态
         const status = await cacheService.getCacheStatus();
         setCacheStatus(status);
         setTimeout(() => setSyncMessage(""), 3000);
@@ -136,10 +207,6 @@ const HomePage = () => {
     }
   }, [currentUser, questions, cacheSettings.cacheLimit]);
 
-  // 添加缓存设置对话框
-  const [showCacheSettings, setShowCacheSettings] = useState(false);
-
-  
   // 缓存设置组件
   const CacheSettingsModal = () => (
     <div className="modal-overlay">
@@ -197,7 +264,6 @@ const HomePage = () => {
               onClick={() => {
                 cacheService.setCacheLimit(cacheSettings.cacheLimit);
                 setShowCacheSettings(false);
-               
                 setTimeout(() => setSyncMessage(""), 3000);
               }}
             >
@@ -209,20 +275,21 @@ const HomePage = () => {
     </div>
   );
 
-  // 新增：加载离线数据
+  const [showCacheSettings, setShowCacheSettings] = useState(false);
+
+  // 加载离线数据
   const loadOfflineData = useCallback(async () => {
     try {
       const cacheData = await cacheService.getCachedQuestions();
       setOfflineQuestions(cacheData.questions);
       setShowOfflineMode(true);
-
       console.log("📦 加载离线数据:", cacheData.questions.length);
     } catch (error) {
       console.error("加载离线数据失败:", error);
     }
   }, []);
 
-  // 新增：手动缓存功能
+  // 手动缓存功能
   const handleManualCache = useCallback(async () => {
     setSyncing(true);
     setSyncMessage("正在缓存题目数据...");
@@ -237,7 +304,7 @@ const HomePage = () => {
     }
   }, [preCacheQuestions]);
 
-  // 新增：网络状态监听
+  // 网络状态监听
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -254,7 +321,6 @@ const HomePage = () => {
     offlineService.addEventListener("online", handleOnline);
     offlineService.addEventListener("offline", handleOffline);
 
-    // 初始状态
     setIsOnline(offlineService.isOnlineMode());
     setCacheStatus(cacheService.getCacheStatus());
 
@@ -264,13 +330,11 @@ const HomePage = () => {
     };
   }, [loadOfflineData]);
 
-  // 在 HomePage.jsx 的 useEffect 中添加
   useEffect(() => {
     const user = AV.User.current();
     setCurrentUser(user);
 
     if (user) {
-      // 检查是否应该使用离线模式
       if (offlineService.shouldUseOfflineData()) {
         console.log("🚀 启动离线模式");
         setShowOfflineMode(true);
@@ -284,7 +348,7 @@ const HomePage = () => {
     }
   }, []);
 
-  // 新增：Service Worker 事件监听
+  // Service Worker 事件监听
   useEffect(() => {
     if (!cacheService.isSupported) return;
 
@@ -306,7 +370,6 @@ const HomePage = () => {
     cacheService.addEventListener("cacheUpdated", handleCacheUpdated);
     cacheService.addEventListener("swActivated", handleSwActivated);
 
-    // 初始 Service Worker 状态
     setSwStatus((prev) => ({
       ...prev,
       supported: cacheService.isSupported,
@@ -318,10 +381,9 @@ const HomePage = () => {
     };
   }, []);
 
-  // 新增：用户登录后自动缓存
+  // 用户登录后自动缓存
   useEffect(() => {
     if (currentUser && questions.length > 0) {
-      // 延迟缓存，避免影响主要功能
       const timer = setTimeout(() => {
         preCacheQuestions();
       }, 3000);
@@ -335,13 +397,9 @@ const HomePage = () => {
     setSyncMessage("刷新数据中...");
 
     try {
-      // 清除所有缓存
       clearAllCache();
       clearCategoryCache();
-
-      // 重新加载数据
       await initializeData();
-
       setSyncMessage("数据刷新成功！");
       setTimeout(() => setSyncMessage(""), 3000);
     } catch (error) {
@@ -351,7 +409,6 @@ const HomePage = () => {
     }
   }, []);
 
-  // 添加题目后自动刷新数据
   useEffect(() => {
     const handleQuestionCreated = () => {
       console.log("📝 检测到题目创建，自动刷新数据...");
@@ -360,7 +417,6 @@ const HomePage = () => {
       }, 1000);
     };
 
-    // 监听题目创建事件
     window.addEventListener("questionCreated", handleQuestionCreated);
 
     return () => {
@@ -401,15 +457,11 @@ const HomePage = () => {
         description: newCategoryDescription.trim() || undefined,
       });
 
-      // 添加新分类到列表
       setCategories((prev) => [newCategory, ...prev]);
-
-      // 重置表单
       setNewCategoryName("");
       setNewCategoryDescription("");
       setShowAddCategory(false);
 
-      // 显示成功消息
       setSyncMessage(`分类 "${newCategory.name}" 创建成功！`);
       setTimeout(() => setSyncMessage(""), 3000);
     } catch (error) {
@@ -422,7 +474,7 @@ const HomePage = () => {
 
   // 处理删除分类确认
   const handleDeleteClick = useCallback((category, e) => {
-    e.stopPropagation(); // 阻止事件冒泡，避免触发分类卡片点击
+    e.stopPropagation();
     setCategoryToDelete(category);
     setShowDeleteConfirm(true);
   }, []);
@@ -434,17 +486,11 @@ const HomePage = () => {
     setDeletingCategory(true);
     try {
       await deleteCategory(categoryToDelete.id);
-
-      // 从列表中移除分类
       setCategories((prev) =>
         prev.filter((cat) => cat.id !== categoryToDelete.id)
       );
-
-      // 关闭确认对话框
       setShowDeleteConfirm(false);
       setCategoryToDelete(null);
-
-      // 显示成功消息
       setSyncMessage(`分类 "${categoryToDelete.name}" 删除成功！`);
       setTimeout(() => setSyncMessage(""), 3000);
     } catch (error) {
@@ -478,7 +524,7 @@ const HomePage = () => {
     }
   };
 
-  // 更新题目复习时间 - 修复版本
+  // 更新题目复习时间
   const handleUpdateQuestionTime = async (questionId) => {
     try {
       console.log("更新题目复习时间:", questionId);
@@ -490,20 +536,17 @@ const HomePage = () => {
 
       const currentTime = new Date();
 
-      // 只更新自定义字段，不要更新 reserved fields
       await updateQuestion(questionId, {
-        lastReviewedAt: currentTime, // 只更新自定义的复习时间字段
+        lastReviewedAt: currentTime,
       });
 
       console.log("LeanCloud 更新成功，开始更新本地状态");
 
-      // 更新本地状态中的题目更新时间
       setQuestions((prev) =>
         prev.map((q) =>
           q.id === questionId
             ? {
                 ...q,
-                // updatedAt 由 LeanCloud 自动更新，我们只更新 lastReviewedAt
                 lastReviewedAt: currentTime.toISOString(),
               }
             : q
@@ -545,15 +588,17 @@ const HomePage = () => {
     };
   }, []);
 
-  // 计算需要复习的题目 - 修复版本
+
+  
+
+  // 计算需要复习的题目
   useEffect(() => {
     const calculateReviewQuestions = () => {
       const now = new Date();
-      const thresholdMs = reviewThreshold * 24 * 60 * 60 * 1000; // 转换为毫秒
+      const thresholdMs = reviewThreshold * 24 * 60 * 60 * 1000;
 
       const needReview = questions
         .filter((question) => {
-          // 使用 lastReviewedAt 字段，如果不存在则使用 createdAt
           const lastReviewed = new Date(
             question.lastReviewedAt || question.createdAt
           );
@@ -561,7 +606,6 @@ const HomePage = () => {
           return timeDiff >= thresholdMs;
         })
         .sort((a, b) => {
-          // 按复习时间正序排列，最久未复习的排在最前面
           const timeA = new Date(a.lastReviewedAt || a.createdAt);
           const timeB = new Date(b.lastReviewedAt || b.createdAt);
           return timeA - timeB;
@@ -609,21 +653,18 @@ const HomePage = () => {
         setActiveTab("categories");
     }
 
-    // 滚动到顶部
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // 优化后的 initializeData 函数
   const initializeData = async () => {
     try {
-      // 在离线模式下不初始化 LeanCloud
       if (!offlineService.shouldUseOfflineData()) {
         initAV();
       }
 
       console.log("🔄 开始加载数据...");
 
-      // 根据网络状态决定是否使用缓存
       const [categoriesData, questionsData] = await Promise.all([
         getCategories({
           page: 1,
@@ -646,17 +687,13 @@ const HomePage = () => {
     } catch (err) {
       console.error("❌ 初始化数据失败:", err);
 
-      // 如果是网络错误，尝试使用完全离线模式
       if (err.message.includes("offline") || err.message.includes("network")) {
         console.log("🌐 网络错误，切换到完全离线模式");
         setShowOfflineMode(true);
 
-        // 尝试加载离线数据
         try {
           const cacheData = await cacheService.getCachedQuestions();
           setOfflineQuestions(cacheData.questions);
-
-          // 设置空的分类和题目数据
           setCategories([]);
           setQuestions([]);
           setLoading(false);
@@ -678,7 +715,7 @@ const HomePage = () => {
     );
   }, [categories, searchTerm]);
 
-  // 计算准确的分类题目数量统计 - 完全基于 questions 数据
+  // 计算准确的分类题目数量统计
   const categoryStats = useMemo(() => {
     if (!categories.length) {
       return {
@@ -696,7 +733,6 @@ const HomePage = () => {
       (cat) => (cat.questionCount || 0) > 0
     ).length;
 
-    // 详细的调试信息
     console.log("🔍 详细统计信息:", {
       分类总数: categories.length,
       基于分类的题目总数: totalQuestionsFromCategories,
@@ -733,7 +769,6 @@ const HomePage = () => {
         return questionDateStr === dateStr;
       });
 
-      // 按创建时间排序
       return dayQuestions.sort(
         (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
       );
@@ -743,15 +778,15 @@ const HomePage = () => {
 
   // 获取固定颜色
   const getDayColor = useCallback((count) => {
-    if (count === 0) return "#f8f9fa"; // 无题目 - 浅灰色
-    if (count <= 1) return "#4CAF50"; // 1题 - 深绿色
-    if (count <= 3) return "#8BC34A"; // 2-3题 - 浅绿色
-    if (count <= 5) return "#FFC107"; // 4-5题 - 黄色
-    if (count <= 8) return "#FF9800"; // 6-8题 - 橙色
-    return "#F44336"; // 9题以上 - 红色
+    if (count === 0) return "#f8f9fa";
+    if (count <= 1) return "#4CAF50";
+    if (count <= 3) return "#8BC34A";
+    if (count <= 5) return "#FFC107";
+    if (count <= 8) return "#FF9800";
+    return "#F44336";
   }, []);
 
-  // 生成月度日历数据 - 使用 useMemo 优化
+  // 生成月度日历数据
   const getMonthlyCalendarData = useCallback(() => {
     const monthStart = new Date(
       selectedMonth.getFullYear(),
@@ -800,7 +835,6 @@ const HomePage = () => {
     setHoveredDay(dayData);
     setTooltipVisible(true);
 
-    // 计算相对于日历容器的位置
     if (calendarRef.current) {
       const calendarRect = calendarRef.current.getBoundingClientRect();
       const dayRect = event.currentTarget.getBoundingClientRect();
@@ -815,7 +849,6 @@ const HomePage = () => {
   }, []);
 
   const handleDayMouseLeave = useCallback(() => {
-    // 延迟隐藏，给用户时间移动到提示框
     setTimeout(() => {
       if (!document.querySelector(".calendar-tooltip:hover")) {
         setTooltipVisible(false);
@@ -842,7 +875,7 @@ const HomePage = () => {
     [selectedMonth]
   );
 
-  // 获取月份统计 - 使用 useMemo 优化
+  // 获取月份统计
   const getMonthStats = useCallback(() => {
     const monthData = getMonthlyCalendarData();
     const daysWithQuestions = monthData.filter((day) => day.count > 0).length;
@@ -920,7 +953,6 @@ const HomePage = () => {
 
   const handleCategoryClick = useCallback(
     (categoryId) => {
-      // 在离线模式下，阻止跳转到分类页面
       if (offlineService.shouldUseOfflineData()) {
         alert("离线模式下无法查看分类详情，请连接网络后重试");
         return;
@@ -932,7 +964,6 @@ const HomePage = () => {
 
   const handleQuestionClick = useCallback(
     (questionId) => {
-      // 找到题目对应的分类并跳转
       const question = questions.find((q) => q.id === questionId);
       if (question && question.category) {
         navigate(`/category/${question.category.id}`);
@@ -941,9 +972,8 @@ const HomePage = () => {
     [questions, navigate]
   );
 
-  // 新增：跳转到离线分类
+  // 跳转到离线分类
   const navigateToOfflineCategory = useCallback((category) => {
-    // 在离线模式下，显示提示信息
     alert(
       `离线模式：查看 ${category.name} 分类的 ${category.questions.length} 道题目\n\n请连接网络后查看完整功能`
     );
@@ -1010,9 +1040,8 @@ const HomePage = () => {
     [selectedMonth]
   );
 
-  // 新增：离线模式下的分类浏览
+  // 离线模式下的分类浏览
   const renderOfflineCategories = useCallback(() => {
-    // 从离线题目中提取分类信息
     const categoryMap = {};
     offlineQuestions.forEach((question) => {
       const categoryName = question.category?.name || "未分类";
@@ -1021,7 +1050,7 @@ const HomePage = () => {
           name: categoryName,
           questions: [],
           questionCount: 0,
-          id: `offline-${categoryName}`, // 生成离线分类ID
+          id: `offline-${categoryName}`,
         };
       }
       categoryMap[categoryName].questions.push(question);
@@ -1044,7 +1073,6 @@ const HomePage = () => {
               {offlineCategories.length} 个分类
             </div>
 
-            {/* 全局离线操作 */}
             <div className="offline-global-actions">
               <button
                 onClick={() => navigate("/offline/questions")}
@@ -1117,13 +1145,12 @@ const HomePage = () => {
     );
   }, [offlineQuestions, navigateToOfflineCategory, navigate]);
 
-  // 修改现有的渲染逻辑，在离线模式下显示缓存数据
+  // 修改现有的渲染逻辑
   const renderContent = () => {
     if (showOfflineMode) {
       return renderOfflineCategories();
     }
 
-    // 原有的在线模式渲染逻辑
     switch (activeTab) {
       case "categories":
         return renderCategoriesTab();
@@ -1139,12 +1166,12 @@ const HomePage = () => {
         return renderCommunityTab();
       case 'cache':
         return (
-    <CacheManagementTab 
-      questions={questions}
-      onCacheUpdate={setCacheStatus}
-      currentUser={currentUser}
-    />
-  );
+          <CacheManagementTab 
+            questions={questions}
+            onCacheUpdate={setCacheStatus}
+            currentUser={currentUser}
+          />
+        );
       default:
         return renderCategoriesTab();
     }
@@ -1300,12 +1327,10 @@ const HomePage = () => {
               {filteredCategories.map((category, index) => {
                 const color = defaultColors[index % defaultColors.length];
 
-                // 基于 questions 计算该分类的实际题目数量
                 const actualQuestionCount = questions.filter(
                   (q) => q.category?.id === category.id
                 ).length;
 
-                // 优先显示实际数量，如果没有则显示服务层数量
                 const displayCount =
                   actualQuestionCount > 0
                     ? actualQuestionCount
@@ -1314,6 +1339,7 @@ const HomePage = () => {
                 return (
                   <div
                     key={category.id}
+                    ref={(el) => categoryRefs.current[`category-${category.id}`] = el}
                     className="category-card"
                     onClick={() => handleCategoryClick(category.id)}
                     style={{ "--accent-color": color }}
@@ -1540,7 +1566,6 @@ const HomePage = () => {
               ))}
             </div>
 
-            {/* 使用新的日历提示框组件 */}
             <CalendarTooltip
               dayData={hoveredDay}
               position={tooltipPosition}
@@ -1718,7 +1743,6 @@ const HomePage = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="homepage">
-        {/* 添加离线指示器 */}
         <OfflineIndicator />
 
         <header className="hero-section">
@@ -1731,17 +1755,14 @@ const HomePage = () => {
                   <span className="offline-status"> • 离线模式</span>
                 )}
               </p>
-              <div className="cache-actions" >
-  
-  
-</div>
-
+              <div className="cache-actions">
+                {/* 缓存操作按钮 */}
+              </div>
             </div>
 
-            {/* 更新头部操作区域 */}
             <div className="header-actions">
               <div className="search-container">
-                
+                {/* 搜索容器 */}
               </div>
              
               {showCacheSettings && <CacheSettingsModal />}
@@ -1805,7 +1826,6 @@ const HomePage = () => {
                   <div className="tab-indicator"></div>
                 )}
               </button>
-              {/* 新增的 Documents 按钮 */}
               <button
                 className={`modern-tab ${
                   activeTab === "documents" ? "active" : ""
@@ -1832,25 +1852,23 @@ const HomePage = () => {
                 )}
               </button>
 
-
-              {/* 缓存状态快速入口 */}
-<button
-  className={`modern-tab ${
-    activeTab === "cache" ? "active" : ""
-  }`}
-  onClick={() => setActiveTab("cache")}
->
-  <span className="tab-icon">💾</span>
-  <span className="tab-text">
-    缓存管理
-    {cacheStatus.hasCache && (
-      <span className="tab-badge">{cacheStatus.count}</span>
-    )}
-  </span>
-  {activeTab === "cache" && (
-    <div className="tab-indicator"></div>
-  )}
-</button>
+              <button
+                className={`modern-tab ${
+                  activeTab === "cache" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("cache")}
+              >
+                <span className="tab-icon">💾</span>
+                <span className="tab-text">
+                  缓存管理
+                  {cacheStatus.hasCache && (
+                    <span className="tab-badge">{cacheStatus.count}</span>
+                  )}
+                </span>
+                {activeTab === "cache" && (
+                  <div className="tab-indicator"></div>
+                )}
+              </button>
             </div>
           </div>
         </section>
@@ -1885,6 +1903,7 @@ const HomePage = () => {
 
         <Chatbox
           onNavigate={handleChatboxNavigate}
+          onTriggerCategory={handleTriggerCategory}
           categories={categories}
           questions={questions}
           currentUser={currentUser}
@@ -1896,14 +1915,12 @@ const HomePage = () => {
   );
 };
 
-// 清理缓存的函数（需要从其他文件导入）
+// 清理缓存的函数
 const clearAllCache = () => {
-  // 实现缓存清理逻辑
   console.log("清理所有缓存");
 };
 
 const clearCategoryCache = () => {
-  // 实现分类缓存清理逻辑
   console.log("清理分类缓存");
 };
 

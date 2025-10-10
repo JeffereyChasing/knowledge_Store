@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import DialogflowService from '../services/dialogflowService';
 import './Chatbox.css';
 
-const Chatbox = ({ onNavigate, categories, questions, currentUser }) => {
+const Chatbox = ({ onNavigate, onTriggerCategory, categories, questions, currentUser }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
@@ -21,7 +21,7 @@ const Chatbox = ({ onNavigate, categories, questions, currentUser }) => {
     setIsTyping(true);
     
     try {
-      // 使用新的代理服务器 API
+      // 使用正确的 DialogflowService 方法
       const response = await DialogflowService.sendWelcome(currentUser?.id);
       
       const welcomeMessage = {
@@ -29,12 +29,13 @@ const Chatbox = ({ onNavigate, categories, questions, currentUser }) => {
         text: response.text,
         isBot: true,
         timestamp: new Date(),
-        quickReplies: [
+        quickReplies: response.quickReplies || [
           '查看所有分类',
           '需要复习的题目',
           '学习统计',
           '创建新分类'
-        ]
+        ],
+        actions: response.actions || []
       };
 
       setMessages([welcomeMessage]);
@@ -51,6 +52,14 @@ const Chatbox = ({ onNavigate, categories, questions, currentUser }) => {
           '需要复习的题目',
           '学习统计',
           '创建新分类'
+        ],
+        actions: [
+          {
+            type: 'triggerButton',
+            target: 'viewCategoriesBtn',
+            label: '📚 查看分类',
+            buttonId: 'categories-button'
+          }
         ]
       };
       setMessages([fallbackMessage]);
@@ -72,15 +81,24 @@ const Chatbox = ({ onNavigate, categories, questions, currentUser }) => {
     setIsTyping(true);
     
     try {
-      // 直接使用 detectIntent，它现在返回适配的格式
-      const response = await DialogflowService.detectIntent(userMessage, currentUser?.id);
+      // 使用增强版的 detectIntent
+      const response = await DialogflowService.detectIntentWithActions(userMessage, currentUser?.id);
       return response;
     } catch (error) {
       console.error('Message processing error:', error);
       return {
         text: '网络错误，请稍后重试。',
         quickReplies: ['查看分类', '搜索题目', '开始复习', '学习统计'],
-        actions: []
+        actions: [
+          {
+            type: 'triggerButton',
+            target: 'viewCategoriesBtn',
+            label: '📚 查看分类',
+            buttonId: 'categories-button'
+          }
+        ],
+        parameters: {},
+        intent: 'Fallback'
       };
     } finally {
       setIsTyping(false);
@@ -122,23 +140,54 @@ const Chatbox = ({ onNavigate, categories, questions, currentUser }) => {
     }, 100);
   };
 
-  const handleActionClick = (action) => {
-    if (action.type === 'navigate' && onNavigate) {
-      onNavigate(action.target);
-      
-      // 添加导航确认消息
-      const confirmMessage = {
-        id: Date.now(),
-        text: `✅ 正在为你跳转到 ${action.label}...`,
-        isBot: true,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, confirmMessage]);
-    } else if (action.type === 'function') {
-      // 处理功能型动作
-      handleFunctionAction(action);
-    }
-  };
+  // 在 Chatbox.jsx 的 handleActionClick 函数中添加调试
+
+const handleActionClick = (action) => {
+  console.log('🖱️ 动作被点击:', action);
+  
+  if (action.type === 'navigate' && onNavigate) {
+    console.log(`📍 导航到: ${action.target}`);
+    onNavigate(action.target);
+    
+    const confirmMessage = {
+      id: Date.now(),
+      text: `✅ 正在为你跳转到 ${action.label}...`,
+      isBot: true,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, confirmMessage]);
+    
+  } else if (action.type === 'triggerButton' && onNavigate) {
+    console.log(`🔘 触发按钮: ${action.buttonId}`);
+    onNavigate(action.target);
+    
+    const confirmMessage = {
+      id: Date.now(),
+      text: `✅ 正在为你打开 ${action.label}...`,
+      isBot: true,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, confirmMessage]);
+    
+  } else if (action.type === 'triggerCategory' && onTriggerCategory) {
+    console.log(`📂 触发分类: ${action.categoryName}`);
+    onTriggerCategory(action.categoryName, action.buttonId);
+    
+    const confirmMessage = {
+      id: Date.now(),
+      text: `✅ 正在为你打开 ${action.categoryName} 分类...`,
+      isBot: true,
+      timestamp: new Date()
+    };
+    setMessages(prev => [...prev, confirmMessage]);
+    
+  } else if (action.type === 'function') {
+    console.log(`⚙️ 执行功能: ${action.target}`);
+    handleFunctionAction(action);
+  } else {
+    console.warn('❌ 未知的动作类型或缺少处理器:', action);
+  }
+};
 
   const handleFunctionAction = (action) => {
     switch (action.target) {

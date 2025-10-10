@@ -864,14 +864,6 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* 网格视图中的标题样式 */
-.grid-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 12px 0 8px 0;
-  line-height: 1.4;
-  color: #1f2937;
-}
 
 /* 出现频率指示器 */
 .appearance-level-indicator {
