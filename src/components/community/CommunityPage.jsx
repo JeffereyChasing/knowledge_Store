@@ -11,7 +11,7 @@ import './CommunityPage.css';
 const CommunityPage = () => {
   const [activeTab, setActiveTab] = useState('latest');
   const [posts, setPosts] = useState([]);
-  const [allPosts, setAllPosts] = useState([]); // 保存所有帖子用于搜索过滤
+  const [allPosts, setAllPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -20,18 +20,17 @@ const CommunityPage = () => {
     pageSize: 20,
     hasMore: true
   });
+  const [isCreating, setIsCreating] = useState(false);
+  const [statsCollapsed, setStatsCollapsed] = useState(false);
 
   useEffect(() => {
     loadPosts(true);
   }, [activeTab]);
 
-  // 根据搜索关键词过滤帖子
   useEffect(() => {
     if (searchKeyword.trim() === '') {
-      // 如果没有搜索关键词，显示所有帖子
       setPosts(allPosts);
     } else {
-      // 只显示标题包含搜索关键词的帖子
       const filtered = allPosts.filter(post => 
         post.get('title')?.toLowerCase().includes(searchKeyword.toLowerCase())
       );
@@ -61,7 +60,6 @@ const CommunityPage = () => {
         const newAllPosts = [...allPosts, ...postsData];
         setAllPosts(newAllPosts);
         
-        // 应用当前搜索过滤
         if (searchKeyword.trim() === '') {
           setPosts(newAllPosts);
         } else {
@@ -94,20 +92,26 @@ const CommunityPage = () => {
     }
   };
 
-  const handlePostCreated = (newPost) => {
-    // 添加到所有帖子列表
-    setAllPosts(prev => [newPost, ...prev]);
-    
-    // 根据当前搜索条件决定是否显示新帖子
-    if (searchKeyword.trim() === '' || 
-        newPost.get('title')?.toLowerCase().includes(searchKeyword.toLowerCase())) {
-      setPosts(prev => [newPost, ...prev]);
+  const handlePostCreated = async (newPost) => {
+    setIsCreating(true);
+    try {
+      setAllPosts(prev => [newPost, ...prev]);
+      
+      if (searchKeyword.trim() === '' || 
+          newPost.get('title')?.toLowerCase().includes(searchKeyword.toLowerCase())) {
+        setPosts(prev => [newPost, ...prev]);
+      }
+      
+      setShowCreateModal(false);
+      
+      setTimeout(() => {
+        console.log('帖子发布成功！');
+      }, 300);
+    } finally {
+      setIsCreating(false);
     }
-    
-    setShowCreateModal(false);
   };
 
-  // 获取搜索结果统计
   const getSearchStats = () => {
     if (searchKeyword.trim() === '') {
       return `共 ${allPosts.length} 个帖子`;
@@ -115,148 +119,238 @@ const CommunityPage = () => {
       const matchCount = allPosts.filter(post => 
         post.get('title')?.toLowerCase().includes(searchKeyword.toLowerCase())
       ).length;
-      return `找到 ${posts.length} 个匹配标题的帖子（共 ${matchCount} 个）`;
+      return `找到 ${posts.length} 个匹配的帖子`;
     }
   };
 
   return (
     <section className="community-section">
       <div className="container">
-        {/* 头部区域 */}
-        <div className="community-header">
-          <div className="header-content">
-            <div className="header-text">
-              <h2>学习社区</h2>
-              <p>与大家一起交流学习心得，分享刷题经验</p>
+        {/* Hero 区域 */}
+        <div className="community-hero">
+          <div className="hero-content">
+            <div className="hero-text">
+              <h1 className="hero-title">
+                <span className="title-gradient">学习社区</span>
+              </h1>
+              <p className="hero-subtitle">与志同道合的学习者一起进步</p>
+              <div className="hero-stats">
+                <span className="stat-item">📚 知识分享</span>
+                <span className="stat-item">🤝 互助解答</span>
+                <span className="stat-item">🚀 共同成长</span>
+              </div>
             </div>
-            <button 
-              className="create-post-btn modern-btn primary"
-              onClick={() => setShowCreateModal(true)}
-            >
-              <span className="btn-icon">✏️</span>
-              发布帖子
-            </button>
-          </div>
-        </div>
-
-        {/* 搜索和统计区域 */}
-        <div className="community-toolbar">
-          <div className="toolbar-left">
-            <SearchBar 
-              onSearch={handleSearch}
-              placeholder="搜索帖子标题..."
-            />
-          </div>
-          <div className="toolbar-right">
-            <CommunityStats />
-          </div>
-        </div>
-
-        {/* 搜索统计信息 */}
-        {searchKeyword && (
-          <div className="search-results-info">
-            <div className="results-stats">
-              {getSearchStats()}
-              {searchKeyword && (
-                <span className="search-keyword">
-                  搜索关键词: <strong>"{searchKeyword}"</strong>
+            <div className="hero-actions">
+              <button 
+                className={`create-post-btn primary ${isCreating ? 'loading' : ''}`}
+                onClick={() => setShowCreateModal(true)}
+                disabled={isCreating}
+              >
+                <span className="btn-icon">✨</span>
+                <span className="btn-text">
+                  {isCreating ? '发布中...' : '创作新帖'}
                 </span>
-              )}
+              </button>
             </div>
           </div>
-        )}
+          <div className="hero-decoration">
+            <div className="decoration-circle circle-1"></div>
+            <div className="decoration-circle circle-2"></div>
+            <div className="decoration-circle circle-3"></div>
+          </div>
+        </div>
 
         <div className="community-layout">
           {/* 侧边栏 */}
           <aside className="community-sidebar">
-            <div className="sidebar-section">
-              <h3>热门标签</h3>
-              <TagCloud 
-                onTagClick={(tag) => handleSearch(tag)}
-              />
+            <div className="sidebar-widget">
+              <div className="widget-header">
+                <h3>📌 内容筛选</h3>
+              </div>
+              <div className="tab-navigation">
+                <button 
+                  className={`tab-btn ${activeTab === 'latest' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('latest')}
+                >
+                  <span className="tab-icon">🆕</span>
+                  最新内容
+                </button>
+                <button 
+                  className={`tab-btn ${activeTab === 'popular' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('popular')}
+                >
+                  <span className="tab-icon">🔥</span>
+                  热门推荐
+                </button>
+              </div>
+            </div>
+
+            <div className="sidebar-widget">
+              <div className="widget-header">
+                <h3>🏷️ 热门标签</h3>
+              </div>
+              <TagCloud onTagClick={handleSearch} />
             </div>
             
-            <div className="sidebar-section">
-              <h3>社区指南</h3>
-              <div className="community-guidelines">
-                <p>💡 分享学习心得</p>
-                <p>🤝 互相帮助解答</p>
-                <p>🎯 保持内容相关</p>
-                <p>👍 尊重他人观点</p>
+            <div className="sidebar-widget">
+              <div className="widget-header">
+                <h3>📖 社区指南</h3>
+              </div>
+              <div className="guidelines-list">
+                <div className="guideline-item">
+                  <span className="guideline-icon">💡</span>
+                  <span>分享真实学习心得</span>
+                </div>
+                <div className="guideline-item">
+                  <span className="guideline-icon">🤝</span>
+                  <span>友善互助解答问题</span>
+                </div>
+                <div className="guideline-item">
+                  <span className="guideline-icon">🎯</span>
+                  <span>保持内容相关优质</span>
+                </div>
+                <div className="guideline-item">
+                  <span className="guideline-icon">👍</span>
+                  <span>尊重他人不同观点</span>
+                </div>
               </div>
             </div>
           </aside>
 
           {/* 主内容区 */}
           <main className="community-main">
-            {/* 标签导航 */}
-            <div className="community-tabs">
-              <button 
-                className={`modern-tab ${activeTab === 'latest' ? 'active' : ''}`}
-                onClick={() => setActiveTab('latest')}
-              >
-                <span className="tab-icon">🆕</span>
-                <span className="tab-text">最新帖子</span>
-              </button>
-              <button 
-                className={`modern-tab ${activeTab === 'popular' ? 'active' : ''}`}
-                onClick={() => setActiveTab('popular')}
-              >
-                <span className="tab-icon">🔥</span>
-                <span className="tab-text">热门内容</span>
-              </button>
+            {/* 内容头部 - 集成搜索框 */}
+            <div className="content-header">
+              <div className="header-left">
+                <h2 className="section-title">
+                  {activeTab === 'latest' ? '最新帖子' : '热门内容'}
+                </h2>
+                <div className="sort-indicator">
+                  <span className="sort-text">
+                    {activeTab === 'latest' ? '按发布时间排序' : '按热度排序'}
+                  </span>
+                </div>
+              </div>
+              <div className="header-right">
+                <div className="integrated-search">
+                  <SearchBar 
+                    onSearch={handleSearch}
+                    placeholder="搜索帖子标题..."
+                    compact={true}
+                  />
+                </div>
+              </div>
             </div>
             
-            {/* 帖子列表 */}
-            <div className="post-list">
-              {loading && (
-                <div className="loading">
-                  <div className="spinner"></div>
-                  <span>加载中...</span>
-                </div>
-              )}
-              
-              {posts.map(post => (
-                <PostCard key={post.id} post={post} />
-              ))}
-              
-              {!loading && posts.length === 0 && (
-                <div className="empty-state">
-                  <div className="empty-icon">
-                    {searchKeyword ? '🔍' : '💬'}
-                  </div>
-                  <h3>
-                    {searchKeyword ? '没有找到匹配的帖子' : '暂无帖子'}
-                  </h3>
-                  <p>
-                    {searchKeyword 
-                      ? `没有标题包含 "${searchKeyword}" 的帖子，尝试调整搜索关键词`
-                      : '成为第一个分享学习心得的人吧！'
-                    }
-                  </p>
-                  {searchKeyword && (
+            {/* 搜索统计信息 */}
+            {searchKeyword && (
+              <div className="integrated-search-results">
+                <div className="search-info-compact">
+                  <span className="results-count">{getSearchStats()}</span>
+                  <span className="search-query">
+                    关键词: <strong>"{searchKeyword}"</strong>
                     <button 
                       onClick={() => handleSearch('')}
-                      className="clear-search-btn"
+                      className="clear-search"
+                      title="清除搜索"
                     >
-                      显示所有帖子
+                      ×
                     </button>
-                  )}
+                  </span>
                 </div>
+              </div>
+            )}
+            
+            {/* 帖子列表 */}
+            <div className="posts-container">
+              {loading && posts.length === 0 ? (
+                <div className="loading-state">
+                  <div className="loading-spinner"></div>
+                  <p>正在加载内容...</p>
+                </div>
+              ) : (
+                <>
+                  <div className="posts-grid">
+                    {posts.map((post, index) => (
+                      <PostCard 
+                        key={post.id} 
+                        post={post}
+                        featured={index === 0 && activeTab === 'popular'}
+                      />
+                    ))}
+                  </div>
+                  
+                  {posts.length === 0 && (
+                    <div className="empty-state">
+                      <div className="empty-illustration">
+                        {searchKeyword ? '🔍' : '💬'}
+                      </div>
+                      <h3>
+                        {searchKeyword ? '没有找到相关内容' : '社区等待你的声音'}
+                      </h3>
+                      <p>
+                        {searchKeyword 
+                          ? `尝试调整搜索关键词，或浏览全部内容`
+                          : '成为第一个分享学习心得的人，开启讨论吧！'
+                        }
+                      </p>
+                      {searchKeyword && (
+                        <button 
+                          onClick={() => handleSearch('')}
+                          className="browse-all-btn"
+                        >
+                          浏览所有帖子
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
             
+            {/* 加载更多 */}
             {pagination.hasMore && posts.length > 0 && searchKeyword === '' && (
-              <div className="load-more-section">
+              <div className="load-more-container">
                 <button 
                   onClick={handleLoadMore}
                   disabled={loading}
-                  className="load-more-btn"
+                  className={`load-more-btn ${loading ? 'loading' : ''}`}
                 >
-                  {loading ? '加载中...' : '加载更多'}
+                  {loading ? (
+                    <>
+                      <span className="loading-dots"></span>
+                      加载中
+                    </>
+                  ) : (
+                    '加载更多内容'
+                  )}
                 </button>
               </div>
             )}
+
+            {/* 社区统计 - 放在主内容区底部 */}
+            <div className="community-stats-section">
+              <div className="stats-header">
+                <h3>
+                  <span className="stats-icon">📊 社区统计</span>
+                </h3>
+                <button 
+                  className={`collapse-btn ${statsCollapsed ? 'collapsed' : ''}`}
+                  onClick={() => setStatsCollapsed(!statsCollapsed)}
+                  aria-label={statsCollapsed ? '展开统计' : '折叠统计'}
+                >
+                  <span className="collapse-icon">
+                    {statsCollapsed ? '▶' : '▼'}
+                  </span>
+                </button>
+              </div>
+              
+              {!statsCollapsed && (
+                <div className="stats-content">
+                  <CommunityStats />
+                </div>
+              )}
+            </div>
           </main>
         </div>
         
@@ -268,6 +362,7 @@ const CommunityPage = () => {
           />
         )}
       </div>
+      <br></br>
     </section>
   );
 };

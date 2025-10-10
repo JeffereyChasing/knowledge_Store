@@ -105,7 +105,7 @@ const TagCloud = ({ onTagClick, maxTags = 20 }) => {
       {/* 标签云头部信息 */}
       <div className="tag-cloud-header">
         <div className="tag-cloud-stats">
-          <span className="stats-text">
+          <span >
             {tags.length} 个标签 • {totalPosts} 个帖子
           </span>
           {selectedTag && (

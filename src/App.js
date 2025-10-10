@@ -10,10 +10,11 @@ import Navigation from './components/Navigation';
 import AuthModal from './components/AuthModal';
 import UserSettingsModal from './components/UserSettingsModal';
 import ReviewPage from './pages/ReviewPage';
-import './App.css';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import OfflineQuestionsPage from './pages/OfflineQuestionsPage';
-
+import ToastNotification from './components/ToastNotification';
+import { useToast } from './hooks/useToast';
+import './App.css';
 
 console.log('Dialogflow Config:', {
   projectId: process.env.REACT_APP_DIALOGFLOW_PROJECT_ID,
@@ -32,6 +33,25 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Toast 容器组件
+const ToastContainer = () => {
+  const { toasts, removeToast } = useToast();
+
+  return (
+    <div className="toast-container">
+      {toasts.map(toast => (
+        <ToastNotification
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          duration={toast.duration}
+          onClose={() => removeToast(toast.id)}
+        />
+      ))}
+    </div>
+  );
+};
 
 function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -53,12 +73,24 @@ function App() {
       setIsUserSettingsOpen(true);
     };
 
+    // 全局错误处理事件
+    const handleGlobalError = (event) => {
+      const { message, type = 'error', duration } = event.detail || {};
+      if (message) {
+        window.dispatchEvent(new CustomEvent('showToast', {
+          detail: { message, type, duration }
+        }));
+      }
+    };
+
     window.addEventListener('showAuthModal', handleShowAuthModal);
     window.addEventListener('showUserSettings', handleShowUserSettings);
+    window.addEventListener('showGlobalError', handleGlobalError);
 
     return () => {
       window.removeEventListener('showAuthModal', handleShowAuthModal);
       window.removeEventListener('showUserSettings', handleShowUserSettings);
+      window.removeEventListener('showGlobalError', handleGlobalError);
     };
   }, []);
 
@@ -69,7 +101,19 @@ function App() {
 
   // 添加认证成功回调
   const handleAuthSuccess = () => {
-    window.location.reload();
+    // 显示成功消息
+    window.dispatchEvent(new CustomEvent('showToast', {
+      detail: { 
+        message: '登录成功！', 
+        type: 'success',
+        duration: 3000
+      }
+    }));
+    
+    // 刷新页面以更新用户状态
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   return (
@@ -84,11 +128,12 @@ function App() {
           <Route path="/test" element={<TestPage />} />
           <Route path="/review" element={<ReviewPage />} />
           <Route path="/offline/questions" element={<OfflineQuestionsPage />} />
-<Route path="/offline/questions/:questionId" element={<OfflineQuestionsPage />} />
-<Route path="/offline/category/:categoryName" element={<OfflineQuestionsPage />} />
-<Route path="/offline/category/:categoryName/question/:questionId" element={<OfflineQuestionsPage />} />
+          <Route path="/offline/questions/:questionId" element={<OfflineQuestionsPage />} />
+          <Route path="/offline/category/:categoryName" element={<OfflineQuestionsPage />} />
+          <Route path="/offline/category/:categoryName/question/:questionId" element={<OfflineQuestionsPage />} />
         </Routes>
 
+        {/* 认证模态框 */}
         <AuthModal 
           isOpen={isAuthModalOpen}
           onClose={() => setIsAuthModalOpen(false)}
@@ -96,12 +141,18 @@ function App() {
           onAuthSuccess={handleAuthSuccess}
         />
 
+        {/* 用户设置模态框 */}
         <UserSettingsModal 
           isOpen={isUserSettingsOpen}
           onClose={() => setIsUserSettingsOpen(false)}
+          defaultTab={userSettingsTab}
         />
-                <PWAInstallPrompt />
 
+        {/* PWA 安装提示 */}
+        <PWAInstallPrompt />
+
+        {/* Toast 通知容器 */}
+        <ToastContainer />
       </Router>
     </QueryClientProvider>
   );

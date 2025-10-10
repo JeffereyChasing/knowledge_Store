@@ -11,11 +11,29 @@ root.render(
   </React.StrictMode>
 );
 
-// 注册 Service Worker
+// 注册 Service Worker - 开发环境禁用版
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
+    // 开发环境不注册 Service Worker
+    const isDevelopment = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1' ||
+                         window.location.port === '3000' ||
+                         window.location.port === '3001';
+    
+    if (isDevelopment) {
+      console.log('🔧 开发模式 - 跳过 Service Worker 注册');
+      
+      // 清理可能已存在的 Service Worker
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (let registration of registrations) {
+        await registration.unregister();
+        console.log('✅ 已卸载开发环境 Service Worker');
+      }
+      return;
+    }
+    
     try {
-      // 先检查 sw.js 文件是否存在
+      // 生产环境：检查并注册 Service Worker
       const response = await fetch('/sw.js');
       if (!response.ok) {
         throw new Error(`sw.js not found: ${response.status}`);
@@ -26,12 +44,10 @@ if ('serviceWorker' in navigator) {
         throw new Error(`Invalid MIME type: ${contentType}`);
       }
       
-      // 文件存在且类型正确，进行注册
       const registration = await navigator.serviceWorker.register('/sw.js');
       console.log('SW registered successfully: ', registration);
     } catch (error) {
       console.log('SW registration failed: ', error);
-      console.log('Error details:', error.message);
     }
   });
 }

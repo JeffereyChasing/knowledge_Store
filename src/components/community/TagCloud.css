@@ -12,6 +12,7 @@
 }
 
 .tag-cloud-stats {
+  color:black;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -109,11 +110,11 @@
 
 .tag-count {
   background: rgba(255, 255, 255, 0.2);
-  color: white;
+  color: salmon;
   padding: 2px 6px;
   border-radius: 10px;
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 650;
   min-width: 20px;
   text-align: center;
 }
@@ -196,6 +197,8 @@
 
 .tip-text {
   font-style: italic;
+  color:black;
+  opacity: 0.7;
 }
 
 /* 加载状态 */

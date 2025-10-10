@@ -136,7 +136,7 @@ const CommunityStats = () => {
   return (
     <div className="community-stats">
       <div className="stats-header">
-        <h4>📊 社区统计</h4>
+        <h4 style={{color:'black'}}>📊 社区统计</h4>
         <div className="header-actions">
           {lastUpdated && (
             <span className="update-time">

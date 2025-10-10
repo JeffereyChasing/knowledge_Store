@@ -55,25 +55,7 @@
   z-index: 2;
 }
 
-.back-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all 0.2s;
-  backdrop-filter: blur(10px);
-  margin-bottom: 1.5rem;
-}
 
-.back-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateX(-2px);
-}
 
 .back-icon {
   font-weight: 600;
@@ -256,6 +238,9 @@
   cursor: pointer;
   font-size: 12px;
   transition: all 0.2s;
+  color: black;
+  opacity: 0.9;
+
 }
 
 .action-btn:hover:not(:disabled) {
@@ -425,14 +410,6 @@
 .time-badge {
   color: var(--text-secondary);
   font-size: 0.8rem;
-}
-
-.question-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-  line-height: 1.4;
 }
 
 .header-actions {
@@ -1730,20 +1707,6 @@
   min-height: auto;
 }
 
-.question-title {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.5;
-  color: #1f2937;
-  margin: 0;
-  display: block;
-  overflow: visible;
-  -webkit-line-clamp: unset;
-  -webkit-box-orient: unset;
-  word-wrap: break-word;
-  white-space: normal;
-}
-
 /* 答案预览区域 */
 .answer-preview-section {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
@@ -2054,20 +2017,6 @@
   display: block;
 }
 
-/* 修复标题显示问题 */
-.title-section {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-.question-title {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  max-height: none !important;
-}
-
 
 .hero-stats {
   display: flex;
@@ -2099,4 +2048,102 @@
   font-size: 0.9rem;
   font-weight: 500;
   margin-top: 4px;
+}
+/* CategoryDetailPage.css - 更新 question-title 样式 */
+
+/* 基础标题样式 */
+.question-title {
+  /* 字体相关 */
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  /* 颜色和间距 */
+  color: #1f2937;
+  margin: 0;
+  padding: 0;
+  
+  /* 布局 */
+  display: block;
+  overflow: visible;
+  word-wrap: break-word;
+  white-space: normal;
+  
+  /* 文字效果 */
+  letter-spacing: -0.01em;
+  
+  /* 过渡效果 */
+  transition: color 0.2s ease-in-out;
+}
+
+/* 网格视图中的标题样式 */
+.question-grid-card .question-title {
+  font-size: 1rem;
+  margin: 0 0 1rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+
+/* 展开视图中的标题样式 */
+.expanded-question-view .question-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* 折叠面板中的标题样式 */
+.modern-accordion .question-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .question-title {
+    font-size: 15px;
+  }
+  
+  .question-grid-card .question-title {
+    font-size: 15px;
+  }
+  
+  .expanded-question-view .question-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* 悬停效果 */
+.question-title:hover {
+  color: #374151;
+}
+
+/* 根据难度级别的颜色变化 */
+.difficulty-easy .question-title {
+  color: #065f46;
+}
+
+.difficulty-medium .question-title {
+  color: #92400e;
+}
+
+.difficulty-hard .question-title {
+  color: #991b1b;
+}
+
+/* 选中状态的标题 */
+.question-title.selected {
+  color: #3b82f6;
+  font-weight: 700;
+}
+
+/* 禁用状态的标题 */
+.question-title:disabled {
+  color: #9ca3af;
+  opacity: 0.6;
 }

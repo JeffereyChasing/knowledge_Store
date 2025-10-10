@@ -607,46 +607,14 @@ const sortedQuestions = useMemo(() => {
           <button 
   onClick={handleBack} 
   className="back-button"
-  style={{
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 20px',
-    backgroundColor: 'transparent',
-    color: '#667eea',
-    border: '2px solid #667eea',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    textDecoration: 'none',
-    fontFamily: 'inherit'
-  }}
-  onMouseEnter={(e) => {
-    e.target.style.backgroundColor = '#667eea';
-    e.target.style.color = 'white';
-    e.target.style.transform = 'translateY(-2px)';
-    e.target.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
-  }}
-  onMouseLeave={(e) => {
-    e.target.style.backgroundColor = 'transparent';
-    e.target.style.color = '#667eea';
-    e.target.style.transform = 'translateY(0)';
-    e.target.style.boxShadow = 'none';
-  }}
 >
   <span 
     className="back-icon"
-    style={{
-      fontSize: '18px',
-      fontWeight: 'bold',
-      transition: 'transform 0.3s ease'
-    }}
   >
     ←
   </span>
   返回知识库
+
 </button>
             <div className="category-hero">
               <div className="category-badge">
@@ -732,14 +700,14 @@ const sortedQuestions = useMemo(() => {
                 <div className="batch-actions">
                   <button 
                     onClick={expandAllQuestions}
-                    className="action-btn expand-btn"
+                    className="action-btn"
                     disabled={sortedQuestions.length === 0}
                   >
                     📖 展开全部
                   </button>
                   <button 
                     onClick={collapseAllQuestions}
-                    className="action-btn collapse-btn"
+                    className="action-btn"
                     disabled={expandedQuestions.size === 0}
                   >
                     📕 折叠全部
@@ -1131,8 +1099,9 @@ const QuestionAccordion = ({
     );
   }
 
+ 
   // 折叠状态下的显示
-  if (viewMode === 'grid') {
+ {} if (viewMode === 'grid') {
     return (
       <div 
         className={`question-grid-card ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
@@ -1168,6 +1137,7 @@ const QuestionAccordion = ({
             {getDifficultyText(question.difficulty)}
           </span>
         </div>
+        
         <h4 className="grid-title">{question.title}</h4>
         
         {/* 出现频率指示器 */}
