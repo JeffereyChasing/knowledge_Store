@@ -156,6 +156,7 @@ const handleTriggerCategory = (categoryName, buttonId) => {
       // 显示成功消息
       setSyncMessage(`已为您打开 ${targetCategory.name} 分类`);
       setTimeout(() => setSyncMessage(""), 3000);
+      
     } else {
       console.log(`❌ 未找到匹配的分类: ${categoryName}`);
       console.log(`💡 可用的分类:`, categories.map(c => c.name));

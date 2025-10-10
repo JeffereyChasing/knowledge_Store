@@ -1,4 +1,106 @@
-// public/sw.js - 增强版，支持题目数据缓存和离线渲染
+// public/sw.js - 开发环境禁用版
+const IS_DEVELOPMENT = self.location.hostname === 'localhost' || 
+                      self.location.hostname === '127.0.0.1' ||
+                      self.location.hostname.startsWith('192.168.') ||
+                      self.location.hostname.startsWith('10.') ||
+                      self.location.port === '3000' ||
+                      self.location.port === '3001';
+
+// ========== 开发环境 - 轻量级模式 ==========
+if (IS_DEVELOPMENT) {
+  console.log('🔧 开发模式 - Service Worker 运行在轻量级模式');
+  
+  // 安装阶段 - 简化
+  self.addEventListener('install', (event) => {
+    console.log('🔄 开发模式 - Service Worker 安装');
+    // 立即激活，不等待
+    self.skipWaiting();
+  });
+
+  // 激活阶段 - 简化
+  self.addEventListener('activate', (event) => {
+    console.log('🚀 开发模式 - Service Worker 激活');
+    event.waitUntil(
+      (async () => {
+        // 不立即声明控制权，避免页面刷新
+        // 仅清理可能存在的旧缓存
+        const cacheNames = await caches.keys();
+        const devCaches = cacheNames.filter(name => 
+          name.includes('dev-') || name.includes('localhost')
+        );
+        await Promise.all(devCaches.map(name => caches.delete(name)));
+        console.log('✅ 开发模式 - 清理完成');
+      })()
+    );
+  });
+
+  // 请求拦截 - 开发环境下大部分直接放行
+  self.addEventListener('fetch', (event) => {
+    const { request } = event;
+    const url = new URL(request.url);
+
+    // 只处理同源请求
+    if (!url.origin.startsWith(self.location.origin)) {
+      return;
+    }
+
+    // 开发环境下，只对特定路径进行简单处理
+    if (url.pathname.includes('/offline-data')) {
+      // 离线数据请求返回空数据
+      event.respondWith(
+        new Response(JSON.stringify({
+          data: null,
+          offline: false,
+          development: true,
+          message: '开发模式 - 离线数据未启用'
+        }), {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+      return;
+    }
+
+    // 其他所有请求直接通过网络，不缓存
+    // 不调用 event.respondWith()，让浏览器正常处理
+  });
+
+  // 消息处理 - 简化版
+  self.addEventListener('message', (event) => {
+    const { data } = event;
+    
+    switch (data.type) {
+      case 'SKIP_WAITING':
+        self.skipWaiting();
+        break;
+        
+      case 'GET_CACHE_STATUS':
+        // 开发环境返回未启用状态
+        if (event.ports && event.ports[0]) {
+          event.ports[0].postMessage({
+            status: 'success',
+            data: {
+              hasCache: false,
+              count: 0,
+              timestamp: null,
+              development: true,
+              message: '开发模式 - 缓存未启用'
+            }
+          });
+        }
+        break;
+        
+      default:
+        console.log('📨 开发模式 - 收到消息:', data);
+    }
+  });
+
+  console.log('✅ 开发模式 - Service Worker 初始化完成');
+  return; // 停止执行生产环境代码
+}
+
+// ========== 生产环境完整代码 ==========
+console.log('🚀 生产模式 - Service Worker 启用完整功能');
+
 const STATIC_CACHE_NAME = 'bagu-mock-static-v2.0.0';
 const DATA_CACHE_NAME = 'questions-data-v2';
 const OFFLINE_PAGE = '/offline.html';
@@ -61,7 +163,8 @@ self.addEventListener('activate', (event) => {
         clients.forEach((client) => {
           client.postMessage({
             type: 'SW_ACTIVATED',
-            version: '2.0.0'
+            version: '2.0.0',
+            environment: 'production'
           });
         });
       });
