@@ -288,7 +288,8 @@ const CalendarTooltip = ({
   dayData, 
   position, 
   onClose,
-  isVisible 
+  isVisible,
+  calendarData // ⭐ 新增：从父组件传入的日历数据
 }) => {
   const tooltipRef = useRef(null);
   const scrollContainerRef = useRef(null);
@@ -298,6 +299,29 @@ const CalendarTooltip = ({
   
   // 哨兵元素引用 - 用于检测是否到达底部
   const loadMoreRef = useRef(null);
+
+  // ⭐ 关键修改：从日历数据中提取当天的标签数据
+  const tagsFromCalendarData = useMemo(() => {
+    if (!calendarData || !dayData?.date) return new Set();
+    
+    // 找到对应的日期数据
+    const targetDateStr = dayData.date.toISOString().split('T')[0];
+    const dayDataFromCalendar = calendarData.find(day => 
+      day.date.toISOString().split('T')[0] === targetDateStr
+    );
+    
+    if (!dayDataFromCalendar?.questions) return new Set();
+    
+    // 提取所有标签
+    const allTags = new Set();
+    dayDataFromCalendar.questions.forEach(question => {
+      if (question.tags && Array.isArray(question.tags)) {
+        question.tags.forEach(tag => allTags.add(tag));
+      }
+    });
+    
+    return allTags;
+  }, [calendarData, dayData?.date]);
 
   // 稳定化 handleClose 函数
   const handleClose = useCallback(() => {
@@ -329,7 +353,6 @@ const CalendarTooltip = ({
     
     try {
       // 首先获取所有问题，然后在客户端进行分页
-      // 在实际项目中，这里应该调用支持分页的 API
       const allQuestions = await getAllQuestions();
       
       // 过滤出当天的题目
@@ -347,22 +370,36 @@ const CalendarTooltip = ({
       // 按创建时间排序
       dayQuestions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       
+      // ⭐ 关键修改：为每个问题注入从日历数据中获取的标签
+      const questionsWithCalendarTags = dayQuestions.map(question => {
+        // 如果日历数据中有这个问题的标签，就使用日历数据的标签
+        const calendarQuestion = calendarData?.find(day => 
+          day.questions?.some(q => q.id === question.id)
+        )?.questions?.find(q => q.id === question.id);
+        
+        return {
+          ...question,
+          // 优先使用日历数据中的标签，如果没有则使用原来的标签
+          tags: calendarQuestion?.tags || question.tags || []
+        };
+      });
+      
       // 客户端分页
       const startIndex = pageParam * pageSize;
       const endIndex = startIndex + pageSize;
-      const paginatedQuestions = dayQuestions.slice(startIndex, endIndex);
+      const paginatedQuestions = questionsWithCalendarTags.slice(startIndex, endIndex);
       
       return {
         questions: paginatedQuestions,
-        hasMore: endIndex < dayQuestions.length,
+        hasMore: endIndex < questionsWithCalendarTags.length,
         nextPage: pageParam + 1,
-        total: dayQuestions.length
+        total: questionsWithCalendarTags.length
       };
     } catch (error) {
       console.error('获取题目失败:', error);
       throw new Error(`加载题目数据失败: ${error.message}`);
     }
-  }, [dayData?.date]);
+  }, [dayData?.date, calendarData]); // ⭐ 添加 calendarData 依赖
 
   // 使用无限查询获取分页数据
   const {
@@ -397,7 +434,7 @@ const CalendarTooltip = ({
     return infiniteData?.pages?.[0]?.total || dayData?.questions?.length || 0;
   }, [infiniteData, dayData]);
 
-  // Intersection Observer 用于检测是否到达底部 - 修复依赖项问题
+  // Intersection Observer 用于检测是否到达底部
   useEffect(() => {
     const scrollElement = scrollContainerRef.current;
     const loadMoreElement = loadMoreRef.current;
@@ -426,7 +463,7 @@ const CalendarTooltip = ({
     };
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, scrollContainerRef.current, loadMoreRef.current]);
 
-  // 事件监听器设置 - 修复依赖项问题
+  // 事件监听器设置
   useEffect(() => {
     if (!isVisible) return;
 
@@ -529,7 +566,7 @@ const CalendarTooltip = ({
     return null;
   }, []);
 
-  // 虚拟化容器引用 - 确保在 DOM 元素挂载后再初始化
+  // 虚拟化容器引用
   const virtualizer = useVirtualizer({
     count: allQuestions.length + (hasNextPage ? 1 : 0),
     getScrollElement: () => scrollContainerRef.current,
@@ -560,6 +597,248 @@ const CalendarTooltip = ({
       )}
     </div>
   ), [isFetchingNextPage]);
+
+  // ⭐ 关键修改：QuestionItem 组件现在使用日历数据的标签
+  const QuestionItem = React.memo(({ question, index }) => {
+    const getDifficultyConfig = useCallback((difficulty) => {
+      switch (difficulty) {
+        case 'easy':
+          return {
+            color: '#10b981',
+            text: '简单',
+            bgColor: '#ecfdf5',
+            borderColor: '#a7f3d0'
+          };
+        case 'medium':
+          return {
+            color: '#f59e0b',
+            text: '中等',
+            bgColor: '#fffbeb',
+            borderColor: '#fcd34d'
+          };
+        case 'hard':
+          return {
+            color: '#ef4444',
+            text: '困难',
+            bgColor: '#fef2f2',
+            borderColor: '#fca5a5'
+          };
+        default:
+          return {
+            color: '#6b7280',
+            text: '未知',
+            bgColor: '#f9fafb',
+            borderColor: '#d1d5db'
+          };
+      }
+    }, []);
+
+    const formatTime = useCallback((date) => {
+      return new Date(date).toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }, []);
+
+    // ⭐ 关键修改：优先使用从日历数据中获取的标签
+    const questionTags = useMemo(() => {
+      // 如果问题本身有标签，使用问题标签
+      if (question.tags && question.tags.length > 0) {
+        return question.tags;
+      }
+      
+      // 否则从日历数据的标签集合中获取相关标签
+      const matchedTags = Array.from(tagsFromCalendarData).filter(tag => 
+        question.title?.includes(tag) || question.description?.includes(tag)
+      );
+      
+      return matchedTags;
+    }, [question, tagsFromCalendarData]);
+
+    const difficultyConfig = getDifficultyConfig(question.difficulty);
+
+    const questionCardStyle = useMemo(() => ({
+      display: 'flex',
+      gap: '16px',
+      background: 'white',
+      border: '1px solid #e2e8f0',
+      borderRadius: '16px',
+      padding: '24px',
+      transition: 'all 0.2s ease',
+      height: 'calc(100% - 32px)',
+      boxSizing: 'border-box',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+    }), []);
+
+    const questionContentStyle = useMemo(() => ({
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '16px'
+    }), []);
+
+    const questionHeaderStyle = useMemo(() => ({
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: '16px'
+    }), []);
+
+    const questionMetaStyle = useMemo(() => ({
+      display: 'flex',
+      gap: '8px',
+      flexShrink: 0,
+      flexWrap: 'wrap'
+    }), []);
+
+    const difficultyTagStyle = useMemo(() => ({
+      padding: '6px 12px',
+      borderRadius: '8px',
+      fontSize: '0.85rem',
+      fontWeight: 600,
+      border: '1px solid',
+      whiteSpace: 'nowrap',
+      backgroundColor: difficultyConfig.bgColor,
+      borderColor: difficultyConfig.borderColor,
+      color: difficultyConfig.color
+    }), [difficultyConfig]);
+
+    const timeTagStyle = useMemo(() => ({
+      background: '#f8fafc',
+      color: '#64748b',
+      padding: '6px 12px',
+      borderRadius: '8px',
+      fontSize: '0.85rem',
+      fontWeight: 500,
+      border: '1px solid #e2e8f0',
+      whiteSpace: 'nowrap'
+    }), []);
+
+    const questionFooterStyle = useMemo(() => ({
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: '16px',
+      flexWrap: 'wrap'
+    }), []);
+
+    const categorySectionStyle = useMemo(() => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      flexShrink: 0
+    }), []);
+
+    const tagsSectionStyle = useMemo(() => ({
+      display: 'flex',
+      gap: '6px',
+      flexWrap: 'wrap',
+      flex: 1,
+      justifyContent: 'flex-end'
+    }), []);
+
+    const questionTagStyle = useMemo(() => ({
+      background: '#f1f5f9',
+      color: '#475569',
+      padding: '4px 8px',
+      borderRadius: '6px',
+      fontSize: '0.8rem',
+      border: '1px solid #e2e8f0',
+      whiteSpace: 'nowrap'
+    }), []);
+
+    const questionDescriptionStyle = useMemo(() => ({
+      background: '#f8fafc',
+      padding: '16px',
+      borderRadius: '12px',
+      color: '#475569',
+      lineHeight: 1.5,
+      borderLeft: '4px solid #c7d2fe',
+      fontSize: '0.95rem',
+      wordWrap: 'break-word'
+    }), []);
+
+    const handleMouseEnter = useCallback((e) => {
+      e.currentTarget.style.borderColor = '#c7d2fe';
+      e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)';
+      e.currentTarget.style.transform = 'translateY(-2px)';
+    }, []);
+
+    const handleMouseLeave = useCallback((e) => {
+      e.currentTarget.style.borderColor = '#e2e8f0';
+      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)';
+      e.currentTarget.style.transform = 'translateY(0)';
+    }, []);
+
+    return (
+      <div 
+        style={questionCardStyle}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#cbd5e0', minWidth: '50px', display: 'flex', alignItems: 'flex-start' }}>
+          #{String(index + 1).padStart(2, '0')}
+        </div>
+        
+        <div style={questionContentStyle}>
+          <div style={questionHeaderStyle}>
+            <h4 style={{ fontSize: '1.3rem', fontWeight: 600, color: '#1e293b', lineHeight: 1.4, margin: 0, flex: 1, wordWrap: 'break-word' }}>
+              {question.title || `未命名题目 ${index + 1}`}
+            </h4>
+            <div style={questionMetaStyle}>
+              <span style={difficultyTagStyle}>
+                {difficultyConfig.text}
+              </span>
+              <span style={timeTagStyle}>
+                {question.createdAt ? formatTime(question.createdAt) : '未知时间'}
+              </span>
+            </div>
+          </div>
+          
+          <div style={questionFooterStyle}>
+            <div style={categorySectionStyle}>
+              <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap' }}>分类</span>
+              <span style={{
+                background: '#e0e7ff',
+                color: '#3730a3',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '0.9rem',
+                fontWeight: 500,
+                whiteSpace: 'nowrap'
+              }}>
+                {question.category?.name || '未分类'}
+              </span>
+            </div>
+            
+            {/* ⭐ 关键修改：使用从日历数据中获取的标签 */}
+            {questionTags.length > 0 && (
+              <div style={tagsSectionStyle}>
+                {questionTags.slice(0, 3).map((tag, tagIndex) => (
+                  <span key={tagIndex} style={questionTagStyle}>
+                    {tag}
+                  </span>
+                ))}
+                {questionTags.length > 3 && (
+                  <span style={questionTagStyle}>
+                    +{questionTags.length - 3}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {question.description && (
+            <div style={questionDescriptionStyle}>
+              {question.description}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  });
+
+  QuestionItem.displayName = 'QuestionItem';
 
   const renderQuestionsTab = useCallback(() => {
     const virtualQuestions = virtualizer.getVirtualItems();
@@ -971,226 +1250,5 @@ const CalendarTooltip = ({
     </div>
   );
 };
-
-// 重新设计的题目项组件
-const QuestionItem = React.memo(({ question, index }) => {
-  const getDifficultyConfig = useCallback((difficulty) => {
-    switch (difficulty) {
-      case 'easy':
-        return {
-          color: '#10b981',
-          text: '简单',
-          bgColor: '#ecfdf5',
-          borderColor: '#a7f3d0'
-        };
-      case 'medium':
-        return {
-          color: '#f59e0b',
-          text: '中等',
-          bgColor: '#fffbeb',
-          borderColor: '#fcd34d'
-        };
-      case 'hard':
-        return {
-          color: '#ef4444',
-          text: '困难',
-          bgColor: '#fef2f2',
-          borderColor: '#fca5a5'
-        };
-      default:
-        return {
-          color: '#6b7280',
-          text: '未知',
-          bgColor: '#f9fafb',
-          borderColor: '#d1d5db'
-        };
-    }
-  }, []);
-
-  const formatTime = useCallback((date) => {
-    return new Date(date).toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }, []);
-
-  const difficultyConfig = getDifficultyConfig(question.difficulty);
-
-  const questionCardStyle = useMemo(() => ({
-    display: 'flex',
-    gap: '16px',
-    background: 'white',
-    border: '1px solid #e2e8f0',
-    borderRadius: '16px',
-    padding: '24px',
-    transition: 'all 0.2s ease',
-    height: 'calc(100% - 32px)',
-    boxSizing: 'border-box',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
-  }), []);
-
-  const questionContentStyle = useMemo(() => ({
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px'
-  }), []);
-
-  const questionHeaderStyle = useMemo(() => ({
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: '16px'
-  }), []);
-
-  const questionMetaStyle = useMemo(() => ({
-    display: 'flex',
-    gap: '8px',
-    flexShrink: 0,
-    flexWrap: 'wrap'
-  }), []);
-
-  const difficultyTagStyle = useMemo(() => ({
-    padding: '6px 12px',
-    borderRadius: '8px',
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    border: '1px solid',
-    whiteSpace: 'nowrap',
-    backgroundColor: difficultyConfig.bgColor,
-    borderColor: difficultyConfig.borderColor,
-    color: difficultyConfig.color
-  }), [difficultyConfig]);
-
-  const timeTagStyle = useMemo(() => ({
-    background: '#f8fafc',
-    color: '#64748b',
-    padding: '6px 12px',
-    borderRadius: '8px',
-    fontSize: '0.85rem',
-    fontWeight: 500,
-    border: '1px solid #e2e8f0',
-    whiteSpace: 'nowrap'
-  }), []);
-
-  const questionFooterStyle = useMemo(() => ({
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '16px',
-    flexWrap: 'wrap'
-  }), []);
-
-  const categorySectionStyle = useMemo(() => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    flexShrink: 0
-  }), []);
-
-  const tagsSectionStyle = useMemo(() => ({
-    display: 'flex',
-    gap: '6px',
-    flexWrap: 'wrap',
-    flex: 1,
-    justifyContent: 'flex-end'
-  }), []);
-
-  const questionTagStyle = useMemo(() => ({
-    background: '#f1f5f9',
-    color: '#475569',
-    padding: '4px 8px',
-    borderRadius: '6px',
-    fontSize: '0.8rem',
-    border: '1px solid #e2e8f0',
-    whiteSpace: 'nowrap'
-  }), []);
-
-  const questionDescriptionStyle = useMemo(() => ({
-    background: '#f8fafc',
-    padding: '16px',
-    borderRadius: '12px',
-    color: '#475569',
-    lineHeight: 1.5,
-    borderLeft: '4px solid #c7d2fe',
-    fontSize: '0.95rem',
-    wordWrap: 'break-word'
-  }), []);
-
-  const handleMouseEnter = useCallback((e) => {
-    e.currentTarget.style.borderColor = '#c7d2fe';
-    e.currentTarget.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.08)';
-    e.currentTarget.style.transform = 'translateY(-2px)';
-  }, []);
-
-  const handleMouseLeave = useCallback((e) => {
-    e.currentTarget.style.borderColor = '#e2e8f0';
-    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.04)';
-    e.currentTarget.style.transform = 'translateY(0)';
-  }, []);
-
-  return (
-    <div 
-      style={questionCardStyle}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#cbd5e0', minWidth: '50px', display: 'flex', alignItems: 'flex-start' }}>
-        #{String(index + 1).padStart(2, '0')}
-      </div>
-      
-      <div style={questionContentStyle}>
-        <div style={questionHeaderStyle}>
-          <h4 style={{ fontSize: '1.3rem', fontWeight: 600, color: '#1e293b', lineHeight: 1.4, margin: 0, flex: 1, wordWrap: 'break-word' }}>
-            {question.title || `未命名题目 ${index + 1}`}
-          </h4>
-          <div style={questionMetaStyle}>
-            <span style={difficultyTagStyle}>
-              {difficultyConfig.text}
-            </span>
-            <span style={timeTagStyle}>
-              {question.createdAt ? formatTime(question.createdAt) : '未知时间'}
-            </span>
-          </div>
-        </div>
-        
-        <div style={questionFooterStyle}>
-          <div style={categorySectionStyle}>
-            <span style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500, whiteSpace: 'nowrap' }}>分类</span>
-            <span style={{
-              background: '#e0e7ff',
-              color: '#3730a3',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '0.9rem',
-              fontWeight: 500,
-              whiteSpace: 'nowrap'
-            }}>
-              {question.category?.name || '未分类'}
-            </span>
-          </div>
-          
-          {question.tags && question.tags.length > 0 && (
-            <div style={tagsSectionStyle}>
-              {question.tags.slice(0, 3).map((tag, tagIndex) => (
-                <span key={tagIndex} style={questionTagStyle}>
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-        
-        {question.description && (
-          <div style={questionDescriptionStyle}>
-            {question.description}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-});
-
-QuestionItem.displayName = 'QuestionItem';
 
 export default CalendarTooltip;

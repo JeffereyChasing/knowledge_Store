@@ -16,7 +16,7 @@ import {
   createCategory,
   deleteCategory,
 } from "../services/categoryService";
-import { getAllQuestions, updateQuestion } from "../services/questionService";
+import { getAllQuestions, updateQuestion, getQuestionsByDate,getQuestionsByDateDirect,getQuestionsByDateRangeDirect } from "../services/questionService";
 import { cacheService } from "../services/cacheService";
 import { offlineService } from "../services/offlineService";
 import OfflineIndicator from "../components/OfflineIndicator";
@@ -79,20 +79,13 @@ const HomePage = () => {
   // 用户状态
   const [currentUser, setCurrentUser] = useState(null);
 
-  // 日历hover相关状态
-  const [hoveredDay, setHoveredDay] = useState(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [tooltipVisible, setTooltipVisible] = useState(false);
+  // 日历相关状态
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [showDayModal, setShowDayModal] = useState(false);
+  const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+  const [calendarData, setCalendarData] = useState([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
   const calendarRef = useRef(null);
-
-
-// 在 HomePage 的状态定义部分添加以下状态
-
- const [selectedDay, setSelectedDay] = useState(null);
-const [showDayModal, setShowDayModal] = useState(false);
-const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
-
-
 
   // 新增离线相关状态
   const [isOnline, setIsOnline] = useState(true);
@@ -115,82 +108,79 @@ const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
   const categoryRefs = useRef({});
 
   // 新增：处理分类触发
-  // 在 Homepage.jsx 的 handleTriggerCategory 函数中添加调试
-
-// 处理分类触发
-const handleTriggerCategory = (categoryName, buttonId) => {
-  console.log(`🎯 触发分类: ${categoryName}, 按钮ID: ${buttonId}`);
-  console.log(`📊 当前分类列表:`, categories.map(cat => cat.name));
-  
-  // 首先切换到分类标签页
-  setActiveTab("categories");
-  
-  // 延迟执行，确保分类页面已经渲染
-  setTimeout(() => {
-    // 找到匹配的分类 - 增强匹配逻辑
-    const targetCategory = categories.find(cat => {
-      const catNameLower = cat.name.toLowerCase();
-      const searchNameLower = categoryName.toLowerCase();
-      
-      // 多种匹配方式
-      const exactMatch = catNameLower === searchNameLower;
-      const containsMatch = catNameLower.includes(searchNameLower) || searchNameLower.includes(catNameLower);
-      const fuzzyMatch = catNameLower.replace(/\s+/g, '') === searchNameLower.replace(/\s+/g, '');
-      
-      console.log(`🔍 匹配检查: ${cat.name}`, {
-        exactMatch,
-        containsMatch,
-        fuzzyMatch,
-        catNameLower,
-        searchNameLower
+  const handleTriggerCategory = (categoryName, buttonId) => {
+    console.log(`🎯 触发分类: ${categoryName}, 按钮ID: ${buttonId}`);
+    console.log(`📊 当前分类列表:`, categories.map(cat => cat.name));
+    
+    // 首先切换到分类标签页
+    setActiveTab("categories");
+    
+    // 延迟执行，确保分类页面已经渲染
+    setTimeout(() => {
+      // 找到匹配的分类 - 增强匹配逻辑
+      const targetCategory = categories.find(cat => {
+        const catNameLower = cat.name.toLowerCase();
+        const searchNameLower = categoryName.toLowerCase();
+        
+        // 多种匹配方式
+        const exactMatch = catNameLower === searchNameLower;
+        const containsMatch = catNameLower.includes(searchNameLower) || searchNameLower.includes(catNameLower);
+        const fuzzyMatch = catNameLower.replace(/\s+/g, '') === searchNameLower.replace(/\s+/g, '');
+        
+        console.log(`🔍 匹配检查: ${cat.name}`, {
+          exactMatch,
+          containsMatch,
+          fuzzyMatch,
+          catNameLower,
+          searchNameLower
+        });
+        
+        return exactMatch || containsMatch || fuzzyMatch;
       });
       
-      return exactMatch || containsMatch || fuzzyMatch;
-    });
-    
-    if (targetCategory) {
-      console.log(`✅ 找到分类: ${targetCategory.name}`, targetCategory);
-      
-      // 如果有对应的分类卡片引用，模拟点击
-      const categoryKey = `category-${targetCategory.id}`;
-      if (categoryRefs.current[categoryKey]) {
-        console.log(`🖱️ 模拟点击分类卡片: ${targetCategory.name}`);
-        categoryRefs.current[categoryKey].click();
-      } else {
-        // 如果没有引用，直接导航到分类页面
-        console.log(`🔗 直接导航到分类: ${targetCategory.name}`);
-        handleCategoryClick(targetCategory.id);
-      }
-      
-      // 显示成功消息
-      setSyncMessage(`已为您打开 ${targetCategory.name} 分类`);
-      setTimeout(() => setSyncMessage(""), 3000);
-      
-    } else {
-      console.log(`❌ 未找到匹配的分类: ${categoryName}`);
-      console.log(`💡 可用的分类:`, categories.map(c => c.name));
-      
-      // 尝试更宽松的匹配
-      const looseMatch = categories.find(cat => 
-        cat.name.toLowerCase().includes(categoryName.toLowerCase().substring(0, 3))
-      );
-      
-      if (looseMatch) {
-        console.log(`🔍 宽松匹配找到: ${looseMatch.name}`);
-        const categoryKey = `category-${looseMatch.id}`;
+      if (targetCategory) {
+        console.log(`✅ 找到分类: ${targetCategory.name}`, targetCategory);
+        
+        // 如果有对应的分类卡片引用，模拟点击
+        const categoryKey = `category-${targetCategory.id}`;
         if (categoryRefs.current[categoryKey]) {
+          console.log(`🖱️ 模拟点击分类卡片: ${targetCategory.name}`);
           categoryRefs.current[categoryKey].click();
-          setSyncMessage(`已为您打开相近分类: ${looseMatch.name}`);
         } else {
-          handleCategoryClick(looseMatch.id);
+          // 如果没有引用，直接导航到分类页面
+          console.log(`🔗 直接导航到分类: ${targetCategory.name}`);
+          handleCategoryClick(targetCategory.id);
         }
+        
+        // 显示成功消息
+        setSyncMessage(`已为您打开 ${targetCategory.name} 分类`);
+        setTimeout(() => setSyncMessage(""), 3000);
+        
       } else {
-        setSyncMessage(`未找到"${categoryName}"分类，请检查分类名称`);
+        console.log(`❌ 未找到匹配的分类: ${categoryName}`);
+        console.log(`💡 可用的分类:`, categories.map(c => c.name));
+        
+        // 尝试更宽松的匹配
+        const looseMatch = categories.find(cat => 
+          cat.name.toLowerCase().includes(categoryName.toLowerCase().substring(0, 3))
+        );
+        
+        if (looseMatch) {
+          console.log(`🔍 宽松匹配找到: ${looseMatch.name}`);
+          const categoryKey = `category-${looseMatch.id}`;
+          if (categoryRefs.current[categoryKey]) {
+            categoryRefs.current[categoryKey].click();
+            setSyncMessage(`已为您打开相近分类: ${looseMatch.name}`);
+          } else {
+            handleCategoryClick(looseMatch.id);
+          }
+        } else {
+          setSyncMessage(`未找到"${categoryName}"分类，请检查分类名称`);
+        }
+        setTimeout(() => setSyncMessage(""), 3000);
       }
-      setTimeout(() => setSyncMessage(""), 3000);
-    }
-  }, 100);
-};
+    }, 100);
+  };
 
   // 预缓存函数
   const preCacheQuestions = useCallback(async () => {
@@ -598,9 +588,6 @@ const handleTriggerCategory = (categoryName, buttonId) => {
     };
   }, []);
 
-
-  
-
   // 计算需要复习的题目
   useEffect(() => {
     const calculateReviewQuestions = () => {
@@ -763,12 +750,12 @@ const handleTriggerCategory = (categoryName, buttonId) => {
 
     return {
       totalCategories: categories.length,
-      totalQuestions: totalQuestionsFromCategories,
+      totalQuestions: questions.length,
       categoriesWithQuestions: categoriesWithQuestions,
     };
   }, [categories, questions]);
 
-  // 获取某一天的题目详情
+  // 获取某一天的题目详情 - 本地计算（降级方案）
   const getDayQuestions = useCallback(
     (date) => {
       const dateStr = date.toISOString().split("T")[0];
@@ -796,8 +783,113 @@ const handleTriggerCategory = (categoryName, buttonId) => {
     return "#F44336";
   }, []);
 
-  // 生成月度日历数据
-  const getMonthlyCalendarData = useCallback(() => {
+  // 从服务器获取月度日历数据
+
+
+
+ // 在组件中使用本地日期处理
+const fetchMonthlyCalendarData = useCallback(async () => {
+  if (!currentUser) return [];
+  
+  setCalendarLoading(true);
+  try {
+    console.log(`📅 获取 ${monthName} 的日历数据（本地时间）...`);
+    
+    // 使用本地日期创建月份范围
+    const year = selectedMonth.getFullYear();
+    const month = selectedMonth.getMonth();
+    
+    const monthStart = new Date(year, month, 1);
+    const monthEnd = new Date(year, month + 1, 0);
+    
+    console.log('📅 本地月份范围:', {
+      开始: monthStart.toDateString(),
+      结束: monthEnd.toDateString(),
+      天数: Math.ceil((monthEnd - monthStart) / (1000 * 60 * 60 * 24)) + 1
+    });
+
+    const monthlyQuestions = await getQuestionsByDateRangeDirect(monthStart, monthEnd);
+    console.log("✅ API返回数据:", monthlyQuestions.length, "题");
+
+    // ⭐ 按本地日期分组
+    const questionsByDate = {};
+    monthlyQuestions.forEach(question => {
+      // 直接使用数据库返回的本地日期
+      const dateStr = question.date;
+      
+      if (!questionsByDate[dateStr]) {
+        questionsByDate[dateStr] = [];
+      }
+      questionsByDate[dateStr].push(question);
+    });
+    
+    console.log("📊 本地日期分组:", Object.keys(questionsByDate).map(date => ({
+      date,
+      count: questionsByDate[date].length
+    })));
+
+    const calendarData = [];
+    const currentDate = new Date(monthStart);
+    
+    let totalQuestions = 0;
+    let daysWithQuestions = 0;
+
+    console.log("🔄 构建calendarData...");
+    
+    while (currentDate <= monthEnd) {
+      // ⭐ 使用本地日期格式
+      const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+      const dateObj = new Date(currentDate);
+      
+      const dayQuestions = questionsByDate[dateStr] || [];
+      const questionCount = dayQuestions.length;
+      
+      totalQuestions += questionCount;
+      if (questionCount > 0) daysWithQuestions++;
+      
+      calendarData.push({
+        date: dateObj,
+        count: questionCount,
+        day: currentDate.getDate(),
+        isToday: isSameDay(currentDate, new Date()),
+        questions: dayQuestions,
+        color: getDayColor(questionCount),
+      });
+      
+      if (questionCount > 0) {
+        console.log(`   📅 ${dateStr}: ${questionCount} 题`);
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    console.log("🎯 最终统计:", {
+      数据库总数: monthlyQuestions.length,
+      日历总数: totalQuestions,
+      有题目天数: daysWithQuestions,
+      状态: monthlyQuestions.length === totalQuestions ? '✅ 数据一致' : '❌ 数据不一致'
+    });
+
+    setCalendarData(calendarData);
+    return calendarData;
+  } catch (error) {
+    console.error('获取日历数据失败:', error);
+    const fallbackData = getMonthlyCalendarDataLocal();
+    setCalendarData(fallbackData);
+    return fallbackData;
+  } finally {
+    setCalendarLoading(false);
+  }
+}, [selectedMonth, currentUser, getDayColor]);
+// 辅助函数：判断是否是同一天（本地时间）
+const isSameDay = (date1, date2) => {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+};
+
+  // 本地计算作为降级方案
+  const getMonthlyCalendarDataLocal = useCallback(() => {
     const monthStart = new Date(
       selectedMonth.getFullYear(),
       selectedMonth.getMonth(),
@@ -808,15 +900,6 @@ const handleTriggerCategory = (categoryName, buttonId) => {
       selectedMonth.getMonth() + 1,
       0
     );
-
-    const dateCounts = {};
-    questions.forEach((question) => {
-      const questionDate = new Date(question.createdAt);
-      if (questionDate >= monthStart && questionDate <= monthEnd) {
-        const dateStr = questionDate.toISOString().split("T")[0];
-        dateCounts[dateStr] = (dateCounts[dateStr] || 0) + 1;
-      }
-    });
 
     const calendarData = [];
     const currentDate = new Date(monthStart);
@@ -840,7 +923,14 @@ const handleTriggerCategory = (categoryName, buttonId) => {
     return calendarData;
   }, [selectedMonth, questions, getDayQuestions, getDayColor]);
 
-  // 处理日历日期的鼠标悬停
+  // 月份切换时重新获取数据
+  useEffect(() => {
+    if (currentUser && activeTab === 'calendar') {
+      fetchMonthlyCalendarData();
+    }
+  }, [selectedMonth, currentUser, activeTab, fetchMonthlyCalendarData]);
+
+  // 处理日历日期的点击
   const handleDayClick = useCallback((dayData, event) => {
     setSelectedDay(dayData);
     setShowDayModal(true);
@@ -859,20 +949,6 @@ const handleTriggerCategory = (categoryName, buttonId) => {
     setShowDayModal(false);
     setSelectedDay(null);
   }, []);
-  
-
-  const handleDayMouseLeave = useCallback(() => {
-    setTimeout(() => {
-      if (!document.querySelector(".calendar-tooltip:hover")) {
-        setTooltipVisible(false);
-      }
-    }, 100);
-  }, []);
-
-  const handleTooltipClose = useCallback(() => {
-    setTooltipVisible(false);
-    setHoveredDay(null);
-  }, []);
 
   // 月份导航
   const navigateMonth = useCallback(
@@ -890,13 +966,24 @@ const handleTriggerCategory = (categoryName, buttonId) => {
 
   // 获取月份统计
   const getMonthStats = useCallback(() => {
-    const monthData = getMonthlyCalendarData();
-    const daysWithQuestions = monthData.filter((day) => day.count > 0).length;
-    const totalQuestions = monthData.reduce((sum, day) => sum + day.count, 0);
-    const maxDaily = Math.max(...monthData.map((day) => day.count));
+    const daysWithQuestions = calendarData.filter((day) => day.count > 0).length;
+    const totalQuestions = calendarData.reduce((sum, day) => sum + day.count, 0);
+    const maxDaily = Math.max(...calendarData.map((day) => day.count), 0);
 
     return { daysWithQuestions, totalQuestions, maxDaily };
-  }, [getMonthlyCalendarData]);
+  }, [calendarData]);
+
+  // 修改活跃天数计算
+  const getActiveDays = useCallback(() => {
+    if (calendarData.length > 0) {
+      return calendarData.filter(day => day.count > 0).length;
+    }
+    // 降级到原有计算
+    const uniqueDays = new Set(
+      questions.map((q) => new Date(q.createdAt).toDateString())
+    );
+    return uniqueDays.size;
+  }, [calendarData, questions]);
 
   const getCategoryChartData = useCallback(() => {
     const categoryMap = {};
@@ -956,13 +1043,6 @@ const handleTriggerCategory = (categoryName, buttonId) => {
         return "未知";
     }
   }, []);
-
-  const getActiveDays = useCallback(() => {
-    const uniqueDays = new Set(
-      questions.map((q) => new Date(q.createdAt).toDateString())
-    );
-    return uniqueDays.size;
-  }, [questions]);
 
   const handleCategoryClick = useCallback(
     (categoryId) => {
@@ -1037,12 +1117,8 @@ const handleTriggerCategory = (categoryName, buttonId) => {
     () => getDifficultyData(),
     [getDifficultyData]
   );
-  const calendarData = useMemo(
-    () => getMonthlyCalendarData(),
-    [getMonthlyCalendarData]
-  );
-  const activeDays = useMemo(() => getActiveDays(), [getActiveDays]);
   const monthStats = useMemo(() => getMonthStats(), [getMonthStats]);
+  const activeDays = useMemo(() => getActiveDays(), [getActiveDays]);
 
   const monthName = useMemo(
     () =>
@@ -1189,6 +1265,28 @@ const handleTriggerCategory = (categoryName, buttonId) => {
         return renderCategoriesTab();
     }
   };
+
+  // 添加清理缓存的功能
+const clearCacheAndRefresh = useCallback(async () => {
+  try {
+    console.log('🧹 清理缓存并重新获取数据...');
+    setSyncMessage('清理缓存中...');
+    
+    // 清理所有缓存
+    await cacheService.clearCache();
+    
+    // 重新获取日历数据
+    await fetchMonthlyCalendarData();
+    
+    setSyncMessage('缓存已清理，数据已刷新');
+    setTimeout(() => setSyncMessage(''), 3000);
+  } catch (error) {
+    console.error('清理缓存失败:', error);
+    setSyncMessage('清理缓存失败');
+    setTimeout(() => setSyncMessage(''), 3000);
+  }
+}, [fetchMonthlyCalendarData]);
+
 
   // 原有的标签页渲染函数
   const renderCategoriesTab = () => (
@@ -1530,14 +1628,22 @@ const handleTriggerCategory = (categoryName, buttonId) => {
       <div className="container">
         <div className="calendar-header">
           <h3>🗓️ 学习日历</h3>
-          <p>点击日期查看当天的学习记录</p> {/* 更新提示文字 */}
+          <p>点击日期查看当天的学习记录</p>
+          {calendarLoading && (
+            <div className="calendar-loading-indicator">
+              <div className="loading-spinner-small"></div>
+              <span>加载日历数据中...</span>
+            </div>
+          )}
+        
         </div>
-  
+
         <div className="modern-calendar-card" ref={calendarRef}>
           <div className="calendar-controls">
             <button
               onClick={() => navigateMonth("prev")}
               className="month-nav-btn"
+              disabled={calendarLoading}
             >
               ← 上个月
             </button>
@@ -1545,11 +1651,12 @@ const handleTriggerCategory = (categoryName, buttonId) => {
             <button
               onClick={() => navigateMonth("next")}
               className="month-nav-btn"
+              disabled={calendarLoading}
             >
               下个月 →
             </button>
           </div>
-  
+
           <div className="monthly-calendar">
             <div className="calendar-weekdays">
               {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
@@ -1558,25 +1665,28 @@ const handleTriggerCategory = (categoryName, buttonId) => {
                 </div>
               ))}
             </div>
-  
+
             <div className="calendar-days">
               {calendarData.map((dayData, index) => (
                 <div
                   key={index}
                   className={`calendar-day ${
                     dayData.count > 0 ? "has-questions" : ""
-                  } ${dayData.isToday ? "today" : ""}`}
+                  } ${dayData.isToday ? "today" : ""} ${
+                    calendarLoading ? "loading" : ""
+                  }`}
                   style={{ backgroundColor: dayData.color }}
-                  onClick={(e) => handleDayClick(dayData, e)} // 改为 onClick
+                  onClick={(e) => handleDayClick(dayData, e)}
                   data-count={dayData.count}
                 >
                   <span className="day-number">{dayData.day}</span>
-                  
+                  {dayData.count > 0 && (
+                    <div className="question-count-badge">{dayData.count}</div>
+                  )}
                 </div>
               ))}
             </div>
-  
-            {/* 添加 CalendarTooltip 组件 */}
+
             <CalendarTooltip
               dayData={selectedDay}
               position={modalPosition}
@@ -1584,7 +1694,7 @@ const handleTriggerCategory = (categoryName, buttonId) => {
               onClose={handleCloseModal}
             />
           </div>
-  
+
           <div className="calendar-stats">
             <div className="calendar-stat">
               <span className="stat-value">{monthStats.totalQuestions}</span>
@@ -1599,7 +1709,7 @@ const handleTriggerCategory = (categoryName, buttonId) => {
               <span className="stat-label">单日最高</span>
             </div>
           </div>
-  
+
           <div className="calendar-legend">
             <div className="legend-item">
               <div
@@ -1649,7 +1759,6 @@ const handleTriggerCategory = (categoryName, buttonId) => {
     </section>
   );
 
-  
   const renderDocumentsTab = () => (
     <section className="documents-tab-section">
       <div className="container">

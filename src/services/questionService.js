@@ -819,5 +819,119 @@ export const getQuestionsByDate = async (date) => {
   }
 };
 
+// 在 questionService.js 中添加
+export const getQuestionsByDateDirect = async (date) => {
+  try {
+    const query = new AV.Query('Question');
+    
+    // 设置日期范围：从指定日期的 00:00:00 到 23:59:59
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    // 查询在该日期范围内创建的题目
+    query.greaterThanOrEqualTo('createdAt', startOfDay);
+    query.lessThanOrEqualTo('createdAt', endOfDay);
+    
+    // 包含分类信息
+    query.include('category');
+    
+    // 按创建时间排序
+    query.ascending('createdAt');
+    
+    const questions = await query.find();
+    
+    // 转换为普通对象
+    return questions.map(question => ({
+      id: question.id,
+      title: question.get('title'),
+      description: question.get('description'),
+      difficulty: question.get('difficulty'),
+      category: question.get('category') ? {
+        id: question.get('category').id,
+        name: question.get('category').get('name')
+      } : null,
+      createdAt: question.get('createdAt'),
+      updatedAt: question.get('updatedAt'),
+      lastReviewedAt: question.get('lastReviewedAt'),
+      tags: question.get('tags') || [],
+      status: question.get('status') || 'active'
+    }));
+    
+  } catch (error) {
+    console.error(`获取 ${date.toDateString()} 的题目失败:`, error);
+    throw error;
+  }
+};
+
+
+// 在 questionService.js 中修复时区问题
+export const getQuestionsByDateRangeDirect = async (startDate, endDate) => {
+  try {
+    const query = new AV.Query('Question');
+    
+    // ⭐ 关键修复：使用本地时间的日期范围
+    // 创建本地日期的开始和结束（不考虑时区）
+    const localStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    const localEnd = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 23, 59, 59, 999);
+    
+    console.log('🔍 本地时间查询范围:', {
+      月份: `${localStart.getFullYear()}-${localStart.getMonth() + 1}`,
+      本地开始: localStart.toString(),
+      本地结束: localEnd.toString(),
+      UTC开始: localStart.toISOString(),
+      UTC结束: localEnd.toISOString()
+    });
+    
+    // 使用本地时间对应的UTC时间进行查询
+    query.greaterThanOrEqualTo('createdAt', localStart);
+    query.lessThanOrEqualTo('createdAt', localEnd);
+    query.include('category');
+    query.ascending('createdAt');
+    
+    const questions = await query.find();
+    
+    const result = questions.map(question => {
+      const createdAt = question.get('createdAt');
+      // ⭐ 使用本地日期，而不是UTC日期
+      const localDate = new Date(createdAt);
+      const dateStr = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+      
+      return {
+        id: question.id,
+        title: question.get('title'),
+        description: question.get('description'),
+        difficulty: question.get('difficulty'),
+        category: question.get('category') ? {
+          id: question.get('category').id,
+          name: question.get('category').get('name')
+        } : null,
+        createdAt: createdAt,
+        // ⭐ 返回本地日期
+        date: dateStr,
+        localTime: localDate.toString(),
+        time: createdAt.toISOString(),
+        updatedAt: question.get('updatedAt'),
+        lastReviewedAt: question.get('lastReviewedAt'),
+      };
+    });
+
+    console.log(`✅ 按本地时间返回 ${result.length} 题:`);
+    const dateCount = {};
+    result.forEach(q => {
+      dateCount[q.date] = (dateCount[q.date] || 0) + 1;
+    });
+    console.log('本地日期分布:', dateCount);
+    
+    return result;
+    
+  } catch (error) {
+    console.error('获取月份数据失败:', error);
+    throw error;
+  }
+};
+
 // 导出辅助函数
 export { batchUpdateCategoryCounts, createCategoryPointer };
