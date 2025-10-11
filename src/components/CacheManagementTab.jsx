@@ -231,8 +231,8 @@ const CacheManagementTab = ({
         {/* 缓存状态概览 */}
         <div className="cache-overview">
           <div className="cache-header">
-            <h2>💾 缓存管理</h2>
-            <p>管理离线缓存数据，确保在无网络环境下也能正常使用</p>
+            <h2 style={{color:'white',fontSize:"2.5rem"}}>💾 缓存管理</h2>
+            <p style={{color:"white",fontWeight:100}}>管理离线缓存数据，确保在无网络环境下也能正常使用</p>
           </div>
           
           <div className="cache-stats-cards">

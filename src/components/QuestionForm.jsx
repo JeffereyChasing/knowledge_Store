@@ -81,17 +81,12 @@ const QuestionForm = ({ question, onSave, onCancel, defaultCategoryId, onCategor
       
       setCategories(userCategories);
       
-      console.log('加载到的分类:', {
-        总数: categoriesData.length,
-        用户分类: userCategories.length,
-        当前用户: currentUser.id,
-        分类详情: userCategories.map(cat => ({ id: cat.id, name: cat.name, createdBy: cat.createdBy?.id }))
-      });
+  
       
       // 如果没有传入类别ID且没有默认类别ID，默认选择第一个类别
       if (!isEditing && !defaultCategoryId && userCategories.length > 0 && !formData.categoryId) {
         setFormData(prev => ({ ...prev, categoryId: userCategories[0].id }));
-        console.log('自动选择第一个分类:', userCategories[0].id);
+        //('自动选择第一个分类:', userCategories[0].id);
       }
     } catch (error) {
       console.error('加载类别失败:', error);

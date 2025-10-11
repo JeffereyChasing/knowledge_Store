@@ -12,14 +12,14 @@ export const DataMigrationService = {
    */
   setupAdminUser: async () => {
     try {
-      console.log('设置当前用户为管理员...');
+      //('设置当前用户为管理员...');
       
       const currentUser = AV.User.current();
       if (!currentUser) {
         throw new Error('请先登录一个账户作为管理员');
       }
       
-      console.log('使用当前用户作为管理员:', currentUser.id);
+      //('使用当前用户作为管理员:', currentUser.id);
       return {
         id: currentUser.id,
         username: currentUser.getUsername(),
@@ -37,7 +37,7 @@ export const DataMigrationService = {
    */
   migrateCategoriesToCurrentUser: async () => {
     try {
-      console.log('开始迁移分类数据...');
+      //('开始迁移分类数据...');
       
       const currentUser = AV.User.current();
       if (!currentUser) {
@@ -50,7 +50,7 @@ export const DataMigrationService = {
       query.doesNotExist('createdBy');
       const categories = await query.find();
       
-      console.log(`找到 ${categories.length} 个需要迁移的分类`);
+      //(`找到 ${categories.length} 个需要迁移的分类`);
       
       let migratedCount = 0;
       for (const category of categories) {
@@ -66,13 +66,13 @@ export const DataMigrationService = {
           
           await category.save();
           migratedCount++;
-          console.log(`✅ 迁移分类: ${category.get('name')}`);
+          //(`✅ 迁移分类: ${category.get('name')}`);
         } catch (error) {
           console.error(`迁移分类失败 ${category.id}:`, error);
         }
       }
       
-      console.log(`分类迁移完成: ${migratedCount}/${categories.length}`);
+      //(`分类迁移完成: ${migratedCount}/${categories.length}`);
       return { migrated: migratedCount, total: categories.length };
     } catch (error) {
       console.error('迁移分类数据失败:', error);
@@ -85,7 +85,7 @@ export const DataMigrationService = {
    */
   migrateQuestionsToCurrentUser: async () => {
     try {
-      console.log('开始迁移题目数据...');
+      //('开始迁移题目数据...');
       
       const currentUser = AV.User.current();
       if (!currentUser) {
@@ -98,7 +98,7 @@ export const DataMigrationService = {
       query.doesNotExist('createdBy');
       const questions = await query.find();
       
-      console.log(`找到 ${questions.length} 个需要迁移的题目`);
+      //(`找到 ${questions.length} 个需要迁移的题目`);
       
       let migratedCount = 0;
       for (const question of questions) {
@@ -114,13 +114,13 @@ export const DataMigrationService = {
           
           await question.save();
           migratedCount++;
-          console.log(`✅ 迁移题目: ${question.get('title')}`);
+          //(`✅ 迁移题目: ${question.get('title')}`);
         } catch (error) {
           console.error(`迁移题目失败 ${question.id}:`, error);
         }
       }
       
-      console.log(`题目迁移完成: ${migratedCount}/${questions.length}`);
+      //(`题目迁移完成: ${migratedCount}/${questions.length}`);
       return { migrated: migratedCount, total: questions.length };
     } catch (error) {
       console.error('迁移题目数据失败:', error);
@@ -133,7 +133,7 @@ export const DataMigrationService = {
    */
   performFullMigration: async () => {
     try {
-      console.log('🚀 开始完整数据迁移...');
+      //('🚀 开始完整数据迁移...');
       
       // 1. 使用当前用户作为管理员
       const adminUser = await DataMigrationService.setupAdminUser();
@@ -144,7 +144,7 @@ export const DataMigrationService = {
       // 3. 迁移题目数据
       const questionResult = await DataMigrationService.migrateQuestionsToCurrentUser();
       
-      console.log('🎉 数据迁移完成！');
+      //('🎉 数据迁移完成！');
       
       return {
         success: true,
@@ -196,7 +196,7 @@ export const DataMigrationService = {
   
   migrateQuestionCreatedBy: async () => {
     try {
-      console.log('开始专门迁移 Question 的 createdBy 属性...');
+      //('开始专门迁移 Question 的 createdBy 属性...');
       
       const currentUser = AV.User.current();
       if (!currentUser) {
@@ -209,7 +209,7 @@ export const DataMigrationService = {
       query.doesNotExist('createdBy');
       const questions = await query.find();
       
-      console.log(`找到 ${questions.length} 个需要添加 createdBy 的题目`);
+      //(`找到 ${questions.length} 个需要添加 createdBy 的题目`);
       
       let migratedCount = 0;
       for (const question of questions) {
@@ -225,13 +225,13 @@ export const DataMigrationService = {
           
           await question.save();
           migratedCount++;
-          console.log(`✅ 为题目添加 createdBy: ${question.get('title')}`);
+          //(`✅ 为题目添加 createdBy: ${question.get('title')}`);
         } catch (error) {
           console.error(`迁移题目失败 ${question.id}:`, error);
         }
       }
       
-      console.log(`Question createdBy 迁移完成: ${migratedCount}/${questions.length}`);
+      //(`Question createdBy 迁移完成: ${migratedCount}/${questions.length}`);
       return { migrated: migratedCount, total: questions.length };
     } catch (error) {
       console.error('迁移 Question createdBy 失败:', error);
@@ -244,7 +244,7 @@ export const DataMigrationService = {
    */
   performQuestionMigrationOnly: async () => {
     try {
-      console.log('🚀 开始专门迁移 Question 数据...');
+      //('🚀 开始专门迁移 Question 数据...');
       
       const currentUser = AV.User.current();
       if (!currentUser) {
@@ -254,7 +254,7 @@ export const DataMigrationService = {
       // 只迁移 Question
       const questionResult = await DataMigrationService.migrateQuestionCreatedBy();
       
-      console.log('🎉 Question 迁移完成！');
+      //('🎉 Question 迁移完成！');
       
       return {
         success: true,

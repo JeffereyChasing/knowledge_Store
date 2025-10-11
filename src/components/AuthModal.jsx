@@ -134,14 +134,6 @@ const handleLogin = async (e) => {
   } catch (error) {
     console.error('登录失败:', error);
     
-    // 更详细的错误日志
-    console.log('Error details:', {
-      name: error.name,
-      code: error.code,
-      message: error.message,
-      originalError: error.originalError
-    });
-    
     if (error instanceof UserServiceError) {
       showErrorToast(error.message);
     } else {

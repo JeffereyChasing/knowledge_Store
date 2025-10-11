@@ -80,7 +80,6 @@ const batchUpdateCategoryCounts = async (updates) => {
         freshCategory.set('questionCount', newCount);
         await freshCategory.save();
         
-        console.log(`分类 ${freshCategory.get('name')} 题目数量批量更新: ${currentCount} -> ${newCount}`);
       } catch (error) {
         console.error(`更新分类 ${categoryId} 题目数量失败:`, error);
       }
@@ -236,7 +235,6 @@ export const createQuestion = async (questionData) => {
 export const getQuestionsByCategory = async (categoryId, options = {}) => {
   // 离线模式下从缓存获取数据
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：从缓存获取分类题目列表');
     const cached = await cacheService.getCachedQuestions();
     const categoryQuestions = cached.questions.filter(q => 
       q.category && getCategoryId(q.category) === categoryId
@@ -772,6 +770,51 @@ export const refreshCache = async () => {
     return questions;
   } catch (error) {
     console.error('❌ 刷新缓存失败:', error);
+    throw error;
+  }
+};
+
+
+// services/questionService.js - 添加专用查询
+export const getQuestionsByDate = async (date) => {
+  try {
+    const Question = AV.Object.extend('Question');
+    const query = new AV.Query(Question);
+    
+    // 设置日期范围：当天的 00:00:00 到 23:59:59
+    const startDate = new Date(date);
+    startDate.setHours(0, 0, 0, 0);
+    
+    const endDate = new Date(date);
+    endDate.setHours(23, 59, 59, 999);
+    
+    query.greaterThanOrEqualTo('createdAt', startDate);
+    query.lessThanOrEqualTo('createdAt', endDate);
+    query.include('category');
+    query.descending('createdAt');
+    
+    const results = await query.find();
+    
+    console.log(`📅 服务端日期查询: ${date.toISOString().split('T')[0]}`, {
+      查询条件: { startDate, endDate },
+      返回结果: results.length
+    });
+    
+    return results.map(item => ({
+      id: item.id,
+      title: item.get('title'),
+      description: item.get('description'),
+      difficulty: item.get('difficulty'),
+      category: item.get('category') ? {
+        id: item.get('category').id,
+        name: item.get('category').get('name')
+      } : null,
+      tags: item.get('tags') || [],
+      createdAt: item.get('createdAt'),
+      lastReviewedAt: item.get('lastReviewedAt')
+    }));
+  } catch (error) {
+    console.error('按日期查询题目失败:', error);
     throw error;
   }
 };

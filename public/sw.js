@@ -8,18 +8,18 @@ const IS_DEVELOPMENT = self.location.hostname === 'localhost' ||
 
 // ========== 开发环境 - 轻量级模式 ==========
 if (IS_DEVELOPMENT) {
-  console.log('🔧 开发模式 - Service Worker 运行在轻量级模式');
+  //('🔧 开发模式 - Service Worker 运行在轻量级模式');
   
   // 安装阶段 - 简化
   self.addEventListener('install', (event) => {
-    console.log('🔄 开发模式 - Service Worker 安装');
+    //('🔄 开发模式 - Service Worker 安装');
     // 立即激活，不等待
     self.skipWaiting();
   });
 
   // 激活阶段 - 简化
   self.addEventListener('activate', (event) => {
-    console.log('🚀 开发模式 - Service Worker 激活');
+    //('🚀 开发模式 - Service Worker 激活');
     event.waitUntil(
       (async () => {
         // 不立即声明控制权，避免页面刷新
@@ -29,7 +29,7 @@ if (IS_DEVELOPMENT) {
           name.includes('dev-') || name.includes('localhost')
         );
         await Promise.all(devCaches.map(name => caches.delete(name)));
-        console.log('✅ 开发模式 - 清理完成');
+        //('✅ 开发模式 - 清理完成');
       })()
     );
   });
@@ -90,16 +90,15 @@ if (IS_DEVELOPMENT) {
         break;
         
       default:
-        console.log('📨 开发模式 - 收到消息:', data);
+        //('📨 开发模式 - 收到消息:', data);
     }
   });
 
-  console.log('✅ 开发模式 - Service Worker 初始化完成');
-  return; // 停止执行生产环境代码
+  //('✅ 开发模式 - Service Worker 初始化完成');
 }
 
 // ========== 生产环境完整代码 ==========
-console.log('🚀 生产模式 - Service Worker 启用完整功能');
+//('🚀 生产模式 - Service Worker 启用完整功能');
 
 const STATIC_CACHE_NAME = 'bagu-mock-static-v2.0.0';
 const DATA_CACHE_NAME = 'questions-data-v2';
@@ -116,13 +115,13 @@ const STATIC_ASSETS = [
 
 // ========== 安装阶段 ==========
 self.addEventListener('install', (event) => {
-  console.log('🔄 Service Worker 安装中...');
+  //('🔄 Service Worker 安装中...');
   
   event.waitUntil(
     Promise.all([
       // 缓存静态资源
       caches.open(STATIC_CACHE_NAME).then((cache) => {
-        console.log('📦 缓存静态资源');
+        //('📦 缓存静态资源');
         return cache.addAll(STATIC_ASSETS);
       }),
       // 创建离线页面
@@ -130,7 +129,7 @@ self.addEventListener('install', (event) => {
         return cache.add(OFFLINE_PAGE);
       })
     ]).then(() => {
-      console.log('✅ Service Worker 安装完成');
+      //('✅ Service Worker 安装完成');
       return self.skipWaiting();
     }).catch((error) => {
       console.error('❌ Service Worker 安装失败:', error);
@@ -140,7 +139,7 @@ self.addEventListener('install', (event) => {
 
 // ========== 激活阶段 ==========
 self.addEventListener('activate', (event) => {
-  console.log('🚀 Service Worker 激活');
+  //('🚀 Service Worker 激活');
   
   event.waitUntil(
     Promise.all([
@@ -150,14 +149,14 @@ self.addEventListener('activate', (event) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
             if (![STATIC_CACHE_NAME, DATA_CACHE_NAME].includes(cacheName)) {
-              console.log('🗑️ 删除旧缓存:', cacheName);
+              //('🗑️ 删除旧缓存:', cacheName);
               return caches.delete(cacheName);
             }
           })
         );
       })
     ]).then(() => {
-      console.log('✅ Service Worker 激活完成');
+      //('✅ Service Worker 激活完成');
       // 通知所有客户端
       return self.clients.matchAll().then((clients) => {
         clients.forEach((client) => {
@@ -220,7 +219,7 @@ async function handleApiRequest(request) {
     
     if (networkResponse.ok) {
       // 缓存成功的 API 响应
-      console.log('✅ API 请求成功，更新缓存:', request.url);
+      //('✅ API 请求成功，更新缓存:', request.url);
       cache.put(request, networkResponse.clone());
       
       // 如果是题目数据，发送消息给客户端
@@ -241,12 +240,12 @@ async function handleApiRequest(request) {
     
     throw new Error(`HTTP ${networkResponse.status}`);
   } catch (error) {
-    console.log('📶 网络请求失败，尝试缓存:', request.url);
+    //('📶 网络请求失败，尝试缓存:', request.url);
     
     // 返回缓存数据
     const cachedResponse = await cache.match(request);
     if (cachedResponse) {
-      console.log('✅ 从缓存返回 API 数据');
+      //('✅ 从缓存返回 API 数据');
       return cachedResponse;
     }
     
@@ -278,7 +277,7 @@ async function handleOfflineDataRequest(request) {
     const cachedResponse = await cache.match(`/offline-data?key=${cacheKey}`);
     
     if (cachedResponse) {
-      console.log('📦 返回离线缓存数据:', cacheKey);
+      //('📦 返回离线缓存数据:', cacheKey);
       return cachedResponse;
     }
     
@@ -348,7 +347,7 @@ async function handleNavigationRequest(request) {
     
     throw new Error(`HTTP ${networkResponse.status}`);
   } catch (error) {
-    console.log('📶 导航请求失败，显示离线页面');
+    //('📶 导航请求失败，显示离线页面');
     
     // 返回缓存的离线页面
     const cachedPage = await caches.match(OFFLINE_PAGE);
@@ -409,7 +408,7 @@ async function handleCacheQuestions(questions) {
     
     await Promise.all(responses);
     
-    console.log('✅ 题目数据缓存成功:', cacheData.count, '道题目');
+    //('✅ 题目数据缓存成功:', cacheData.count, '道题目');
     
     // 通知客户端
     self.clients.matchAll().then((clients) => {
@@ -470,7 +469,7 @@ async function handleClearCache() {
     
     await Promise.all(keys.map(key => cache.delete(key)));
     
-    console.log('✅ 缓存数据清理完成');
+    //('✅ 缓存数据清理完成');
     
     self.clients.matchAll().then((clients) => {
       clients.forEach((client) => {

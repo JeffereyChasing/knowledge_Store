@@ -24,7 +24,7 @@ const UserTestPanel = () => {
   const checkCurrentUser = () => {
     const user = UserService.getCurrentUser();
     setCurrentUser(user);
-    console.log('当前用户:', user);
+    //('当前用户:', user);
   };
 
   // 用户注册

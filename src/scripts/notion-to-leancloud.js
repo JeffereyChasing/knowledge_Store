@@ -24,13 +24,13 @@ AV.init(config.leancloud);
  */
 async function fetchNotionData() {
   try {
-    console.log('开始从 Notion 获取数据...');
+    //('开始从 Notion 获取数据...');
     
     const response = await notion.databases.query({
       database_id: config.notion.databaseId,
     });
     
-    console.log(`获取到 ${response.results.length} 条记录`);
+    //(`获取到 ${response.results.length} 条记录`);
     return response.results;
   } catch (error) {
     console.error('获取 Notion 数据失败:', error);
@@ -131,7 +131,7 @@ async function importToLeanCloud(questions) {
       
       await question.save();
       successCount++;
-      console.log(`✅ 导入成功: ${questionData.title}`);
+      //(`✅ 导入成功: ${questionData.title}`);
       
     } catch (error) {
       errorCount++;
@@ -139,7 +139,7 @@ async function importToLeanCloud(questions) {
     }
   }
   
-  console.log(`\n导入完成: ${successCount} 成功, ${errorCount} 失败`);
+  //(`\n导入完成: ${successCount} 成功, ${errorCount} 失败`);
 }
 
 /**
@@ -171,12 +171,12 @@ async function main() {
     
     // 2. 转换数据格式
     const questions = transformNotionData(notionPages);
-    console.log(`转换成功 ${questions.length} 条数据`);
+    //(`转换成功 ${questions.length} 条数据`);
     
     // 3. 导入到 LeanCloud
     await importToLeanCloud(questions);
     
-    console.log('🎉 数据导入完成！');
+    //('🎉 数据导入完成！');
     
   } catch (error) {
     console.error('导入过程出错:', error);

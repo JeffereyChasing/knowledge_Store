@@ -92,7 +92,7 @@ const CommentSection = ({ postId }) => {
 
   const showSuccessMessage = (message) => {
     // 可以在这里添加更美观的成功提示
-    console.log(message);
+    //(message);
   };
 
   const handleKeyDown = (e) => {

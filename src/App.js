@@ -16,11 +16,7 @@ import ToastNotification from './components/ToastNotification';
 import { useToast } from './hooks/useToast';
 import './App.css';
 
-console.log('Dialogflow Config:', {
-  projectId: process.env.REACT_APP_DIALOGFLOW_PROJECT_ID,
-  clientEmail: process.env.REACT_APP_DIALOGFLOW_CLIENT_EMAIL,
-  hasPrivateKey: !!process.env.REACT_APP_DIALOGFLOW_PRIVATE_KEY
-});
+
 
 // 在组件外部创建 QueryClient 实例
 const queryClient = new QueryClient({

@@ -90,10 +90,7 @@ const extractActions = (queryResult) => {
   const actions = [];
   const parameters = queryResult.parameters || {};
   
-  console.log('🔍 extractActions 被调用:', {
-    intent: queryResult.intent?.displayName,
-    parameters: parameters
-  });
+ 
 
   // 根据意图类型返回不同的动作
   switch (queryResult.intent?.displayName) {

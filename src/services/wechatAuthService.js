@@ -7,7 +7,7 @@ export const WechatAuthService = {
    */
   initWechatAuth: () => {
     // 这里可以初始化微信 SDK（如果需要）
-    console.log('微信登录服务初始化');
+    //('微信登录服务初始化');
   },
 
   /**
@@ -17,7 +17,7 @@ export const WechatAuthService = {
     try {
       // 使用 LeanCloud 的微信登录
       const user = await AV.User.loginWithWeapp();
-      console.log('微信登录成功:', user);
+      //('微信登录成功:', user);
       return user;
     } catch (error) {
       console.error('微信登录失败:', error);
@@ -87,7 +87,7 @@ export const WechatAuthService = {
       // 步骤2: 使用 LeanCloud 进行微信登录
       const user = await AV.User.signUpOrlogInWithAuthData(authData, 'weixin');
       
-      console.log('微信扫码登录成功:', user);
+      //('微信扫码登录成功:', user);
       return user;
     } catch (error) {
       console.error('微信扫码登录失败:', error);
@@ -144,7 +144,7 @@ export const WechatAuthService = {
       const authData = await WechatAuthService.getWechatAuthData();
       await AV.User.current().associateWithAuthData(authData, 'weixin');
       
-      console.log('微信绑定成功');
+      //('微信绑定成功');
       return true;
     } catch (error) {
       console.error('微信绑定失败:', error);
@@ -163,7 +163,7 @@ export const WechatAuthService = {
       }
 
       await currentUser.dissociateAuthData('weixin');
-      console.log('微信解绑成功');
+      //('微信解绑成功');
       return true;
     } catch (error) {
       console.error('微信解绑失败:', error);

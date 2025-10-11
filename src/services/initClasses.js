@@ -286,7 +286,6 @@ const createFollowClass = async () => {
  */
 export const generateCommunitySampleData = async () => {
   try {
-    console.log('🚀 开始生成社区示例数据...');
     
     // 首先确保数据表已创建
     await createCommunityClasses();
@@ -297,14 +296,12 @@ export const generateCommunitySampleData = async () => {
       likes: await createSampleLikes()
     };
     
-    console.log('✅ 社区示例数据生成完成:', results);
     return {
       success: true,
       ...results,
       message: `成功生成 ${results.posts.length} 个帖子, ${results.comments.length} 条评论, ${results.likes.length} 个点赞`
     };
   } catch (error) {
-    console.error('❌ 生成社区示例数据失败:', error);
     throw new Error(`生成社区示例数据失败: ${error.message}`);
   }
 };
@@ -315,7 +312,6 @@ export const generateCommunitySampleData = async () => {
 const createSamplePosts = async () => {
   const currentUser = AV.User.current();
   if (!currentUser) {
-    console.log('⚠️ 用户未登录，跳过创建示例帖子');
     return [];
   }
 
@@ -391,7 +387,6 @@ const createSamplePosts = async () => {
     
     const saved = await post.save();
     posts.push(saved);
-    console.log(`✅ 创建帖子: "${data.title}"`);
   }
   
   return posts;
@@ -403,7 +398,6 @@ const createSamplePosts = async () => {
 const createSampleComments = async () => {
   const currentUser = AV.User.current();
   if (!currentUser) {
-    console.log('⚠️ 用户未登录，跳过创建示例评论');
     return [];
   }
 
@@ -412,7 +406,6 @@ const createSampleComments = async () => {
   const posts = await postQuery.find();
   
   if (posts.length === 0) {
-    console.log('⚠️ 没有找到帖子，跳过创建评论');
     return [];
   }
 
@@ -1104,28 +1097,5 @@ if (typeof window !== 'undefined') {
   window.generateCommunitySampleData = generateCommunitySampleData;
   window.clearCommunityData = clearCommunityData;
   
-  console.log(`
-🎯 数据库管理工具已加载！
 
-📚 数据管理:
-1. generateSampleData()          - 生成示例数据
-2. clearAllData()                - 清除所有数据
-3. checkDataStatus()             - 检查数据状态
-
-🔄 Notion 同步:
-4. syncProblemsFromNotion()      - 从 Notion 导入题目
-5. checkNotionConnection()       - 检查 Notion 连接状态
-6. defineNotionCloudFunctions()  - 定义云函数（用于云引擎）
-
-👥 社区功能:
-7. createCommunityClasses()      - 创建社区数据表
-8. generateCommunitySampleData() - 生成社区示例数据
-9. clearCommunityData()          - 清除社区数据
-
-💡 使用提示:
-- 首次使用请运行 generateSampleData() 创建示例数据
-- 使用社区功能前运行 createCommunityClasses() 创建数据表
-- 配置 Notion 环境变量后使用 syncProblemsFromNotion() 同步
-- 云函数需要在 LeanCloud 云引擎部署
-  `);
 }

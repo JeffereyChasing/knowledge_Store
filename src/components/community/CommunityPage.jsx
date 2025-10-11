@@ -105,7 +105,7 @@ const CommunityPage = () => {
       setShowCreateModal(false);
       
       setTimeout(() => {
-        console.log('帖子发布成功！');
+        //('帖子发布成功！');
       }, 300);
     } finally {
       setIsCreating(false);

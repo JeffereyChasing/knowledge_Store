@@ -41,7 +41,7 @@ const QuestionCard = () => {
     e.preventDefault();
     if (question.title && question.answer) {
       setIsEditing(false);
-      console.log('题目已保存:', question);
+      //('题目已保存:', question);
     }
   };
 

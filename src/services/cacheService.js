@@ -44,10 +44,7 @@ export class CacheService {
       // 确定缓存策略
       this.determineCacheStrategy();
       
-      console.log(`🔄 缓存服务初始化完成 - 策略: ${this.cacheState.strategy}`, {
-        sw: this.cacheState.swAvailable,
-        ls: this.cacheState.localStorageAvailable
-      });
+      
       
     } catch (error) {
       console.error('❌ 缓存服务初始化失败:', error);

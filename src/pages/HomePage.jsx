@@ -85,6 +85,15 @@ const HomePage = () => {
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const calendarRef = useRef(null);
 
+
+// 在 HomePage 的状态定义部分添加以下状态
+
+ const [selectedDay, setSelectedDay] = useState(null);
+const [showDayModal, setShowDayModal] = useState(false);
+const [modalPosition, setModalPosition] = useState({ x: 0, y: 0 });
+
+
+
   // 新增离线相关状态
   const [isOnline, setIsOnline] = useState(true);
   const [cacheStatus, setCacheStatus] = useState({});
@@ -832,22 +841,25 @@ const handleTriggerCategory = (categoryName, buttonId) => {
   }, [selectedMonth, questions, getDayQuestions, getDayColor]);
 
   // 处理日历日期的鼠标悬停
-  const handleDayMouseEnter = useCallback((dayData, event) => {
-    setHoveredDay(dayData);
-    setTooltipVisible(true);
-
-    if (calendarRef.current) {
-      const calendarRect = calendarRef.current.getBoundingClientRect();
-      const dayRect = event.currentTarget.getBoundingClientRect();
-
-      setTooltipPosition({
-        x: dayRect.left + dayRect.width / 2 - calendarRect.left,
-        y: dayRect.top - calendarRect.top - 10,
-      });
-    }
-
-    setTooltipVisible(true);
+  const handleDayClick = useCallback((dayData, event) => {
+    setSelectedDay(dayData);
+    setShowDayModal(true);
+    
+    // 计算模态框位置（居中显示）
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    setModalPosition({
+      x: viewportWidth / 2,
+      y: viewportHeight / 2
+    });
   }, []);
+  
+  // 关闭模态框
+  const handleCloseModal = useCallback(() => {
+    setShowDayModal(false);
+    setSelectedDay(null);
+  }, []);
+  
 
   const handleDayMouseLeave = useCallback(() => {
     setTimeout(() => {
@@ -1518,9 +1530,9 @@ const handleTriggerCategory = (categoryName, buttonId) => {
       <div className="container">
         <div className="calendar-header">
           <h3>🗓️ 学习日历</h3>
-          <p>查看每月的学习活动分布</p>
+          <p>点击日期查看当天的学习记录</p> {/* 更新提示文字 */}
         </div>
-
+  
         <div className="modern-calendar-card" ref={calendarRef}>
           <div className="calendar-controls">
             <button
@@ -1537,7 +1549,7 @@ const handleTriggerCategory = (categoryName, buttonId) => {
               下个月 →
             </button>
           </div>
-
+  
           <div className="monthly-calendar">
             <div className="calendar-weekdays">
               {["日", "一", "二", "三", "四", "五", "六"].map((day) => (
@@ -1546,7 +1558,7 @@ const handleTriggerCategory = (categoryName, buttonId) => {
                 </div>
               ))}
             </div>
-
+  
             <div className="calendar-days">
               {calendarData.map((dayData, index) => (
                 <div
@@ -1555,26 +1567,24 @@ const handleTriggerCategory = (categoryName, buttonId) => {
                     dayData.count > 0 ? "has-questions" : ""
                   } ${dayData.isToday ? "today" : ""}`}
                   style={{ backgroundColor: dayData.color }}
-                  onMouseEnter={(e) => handleDayMouseEnter(dayData, e)}
-                  onMouseLeave={handleDayMouseLeave}
+                  onClick={(e) => handleDayClick(dayData, e)} // 改为 onClick
                   data-count={dayData.count}
                 >
                   <span className="day-number">{dayData.day}</span>
-                  {dayData.count > 0 && (
-                    <div className="question-count-badge">{dayData.count}</div>
-                  )}
+                  
                 </div>
               ))}
             </div>
-
+  
+            {/* 添加 CalendarTooltip 组件 */}
             <CalendarTooltip
-              dayData={hoveredDay}
-              position={tooltipPosition}
-              isVisible={tooltipVisible}
-              onClose={handleTooltipClose}
+              dayData={selectedDay}
+              position={modalPosition}
+              isVisible={showDayModal}
+              onClose={handleCloseModal}
             />
           </div>
-
+  
           <div className="calendar-stats">
             <div className="calendar-stat">
               <span className="stat-value">{monthStats.totalQuestions}</span>
@@ -1589,7 +1599,7 @@ const handleTriggerCategory = (categoryName, buttonId) => {
               <span className="stat-label">单日最高</span>
             </div>
           </div>
-
+  
           <div className="calendar-legend">
             <div className="legend-item">
               <div
@@ -1639,6 +1649,7 @@ const handleTriggerCategory = (categoryName, buttonId) => {
     </section>
   );
 
+  
   const renderDocumentsTab = () => (
     <section className="documents-tab-section">
       <div className="container">

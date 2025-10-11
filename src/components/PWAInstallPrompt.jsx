@@ -31,9 +31,9 @@ const PWAInstallPrompt = () => {
     const { outcome } = await deferredPrompt.userChoice;
     
     if (outcome === 'accepted') {
-      console.log('用户接受了安装');
+      //('用户接受了安装');
     } else {
-      console.log('用户拒绝了安装');
+      //('用户拒绝了安装');
     }
     
     setDeferredPrompt(null);

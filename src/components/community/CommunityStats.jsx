@@ -46,14 +46,30 @@ const CommunityStats = () => {
         .count()
         .catch(() => 0);
 
-      // 获取活跃用户数（最近7天有活动的用户）
+      // 获取活跃用户数（最近7天有活动的用户）- 修复这里
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
-      const activeUsers = await new AV.Query('Post')
+      
+      // 方法1: 先查询帖子，然后统计不重复的作者
+      const recentPosts = await new AV.Query('Post')
         .greaterThanOrEqualTo('createdAt', weekAgo)
-        .distinct('author')
-        .count()
-        .catch(() => 0);
+        .select(['author'])
+        .limit(1000)
+        .find()
+        .catch(() => []);
+
+      // 使用 Set 来统计不重复的作者
+      const uniqueAuthors = new Set();
+      recentPosts.forEach(post => {
+        const author = post.get('author');
+        if (author) {
+          uniqueAuthors.add(author.id || author);
+        }
+      });
+      const activeUsers = uniqueAuthors.size;
+
+      // 方法2: 或者使用聚合查询（如果支持的话）
+      // const activeUsers = await getActiveUsersCount(weekAgo);
 
       // 获取热门标签
       const postQuery = new AV.Query('Post');
@@ -98,6 +114,34 @@ const CommunityStats = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 备选方法：使用用户表的最后活跃时间
+  const getActiveUsersCount = async (sinceDate) => {
+    try {
+      const activeUsers = await new AV.Query('_User')
+        .greaterThanOrEqualTo('updatedAt', sinceDate)
+        .count()
+        .catch(() => 0);
+      return activeUsers;
+    } catch (error) {
+      console.error('获取活跃用户数失败:', error);
+      return 0;
+    }
+  };
+
+  // 备选方法：使用专门的用户活动记录
+  const getActiveUsersFromActivities = async (sinceDate) => {
+    try {
+      const activities = await new AV.Query('UserActivity')
+        .greaterThanOrEqualTo('lastActiveAt', sinceDate)
+        .count()
+        .catch(() => 0);
+      return activities;
+    } catch (error) {
+      console.error('从活动记录获取用户数失败:', error);
+      return 0;
     }
   };
 

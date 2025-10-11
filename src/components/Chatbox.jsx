@@ -143,10 +143,10 @@ const Chatbox = ({ onNavigate, onTriggerCategory, categories, questions, current
   // 在 Chatbox.jsx 的 handleActionClick 函数中添加调试
 
 const handleActionClick = (action) => {
-  console.log('🖱️ 动作被点击:', action);
+  //('🖱️ 动作被点击:', action);
   
   if (action.type === 'navigate' && onNavigate) {
-    console.log(`📍 导航到: ${action.target}`);
+    //(`📍 导航到: ${action.target}`);
     onNavigate(action.target);
     
     const confirmMessage = {
@@ -158,7 +158,7 @@ const handleActionClick = (action) => {
     setMessages(prev => [...prev, confirmMessage]);
     
   } else if (action.type === 'triggerButton' && onNavigate) {
-    console.log(`🔘 触发按钮: ${action.buttonId}`);
+    //(`🔘 触发按钮: ${action.buttonId}`);
     onNavigate(action.target);
     
     const confirmMessage = {
@@ -170,7 +170,7 @@ const handleActionClick = (action) => {
     setMessages(prev => [...prev, confirmMessage]);
     
   } else if (action.type === 'triggerCategory' && onTriggerCategory) {
-    console.log(`📂 触发分类: ${action.categoryName}`);
+    //(`📂 触发分类: ${action.categoryName}`);
     onTriggerCategory(action.categoryName, action.buttonId);
     
     const confirmMessage = {
@@ -182,7 +182,7 @@ const handleActionClick = (action) => {
     setMessages(prev => [...prev, confirmMessage]);
     
   } else if (action.type === 'function') {
-    console.log(`⚙️ 执行功能: ${action.target}`);
+    //(`⚙️ 执行功能: ${action.target}`);
     handleFunctionAction(action);
   } else {
     console.warn('❌ 未知的动作类型或缺少处理器:', action);
@@ -202,7 +202,7 @@ const handleActionClick = (action) => {
         setMessages(prev => [...prev, searchMessage]);
         break;
       default:
-        console.log('Function action:', action);
+        //('Function action:', action);
     }
   };
 

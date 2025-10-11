@@ -43,13 +43,13 @@ const QuestionDetailCard = ({
 
   // 当question的appearanceLevel变化时更新本地状态
   useEffect(() => {
-    console.log('question.appearanceLevel 变化:', question?.appearanceLevel);
+    //('question.appearanceLevel 变化:', question?.appearanceLevel);
     setLocalAppearanceLevel(question?.appearanceLevel);
   }, [question?.appearanceLevel]);
 
   // 监控状态变化用于调试
   useEffect(() => {
-    console.log('localAppearanceLevel 状态变化:', localAppearanceLevel);
+    //('localAppearanceLevel 状态变化:', localAppearanceLevel);
   }, [localAppearanceLevel]);
 
   // 增强的 Markdown 解析函数 - 支持图片预览
@@ -308,12 +308,7 @@ const QuestionDetailCard = ({
       return;
     }
 
-    console.log('开始更新出现频率:', {
-      新值: newLevel,
-      当前prop值: question?.appearanceLevel,
-      当前本地状态值: localAppearanceLevel
-    });
-    
+  
     // 立即更新本地状态（乐观更新）
     setLocalAppearanceLevel(newLevel);
     
@@ -321,7 +316,7 @@ const QuestionDetailCard = ({
       setUpdatingAppearance(true);
       try {
         await onUpdateField(question.id, 'appearanceLevel', newLevel);
-        console.log('出现频率更新成功，等待父组件数据更新');
+        //('出现频率更新成功，等待父组件数据更新');
         
         // 注意：这里不直接更新本地状态，等待父组件传递新的 question prop
         // 父组件应该在 onUpdateField 成功后更新数据并重新传递 question prop
@@ -362,7 +357,7 @@ const QuestionDetailCard = ({
       // 更新题目的下次复习时间
       if (onUpdateField && question?.id) {
         await onUpdateField(question.id, 'nextReviewDate', nextReviewDate.toISOString());
-        console.log(`题目将在 ${reviewDays} 天后再次提醒复习`);
+        //(`题目将在 ${reviewDays} 天后再次提醒复习`);
         
         // 显示成功消息
         alert(`已确认复习！该题目将在 ${reviewDays} 天后再次出现在复习列表中`);
@@ -396,7 +391,7 @@ const QuestionDetailCard = ({
       // 更新题目的下次复习时间
       if (onUpdateField && question?.id) {
         await onUpdateField(question.id, 'nextReviewDate', nextReviewDate.toISOString());
-        console.log(`题目将在 ${removeDays} 天后再次提醒复习`);
+        //(`题目将在 ${removeDays} 天后再次提醒复习`);
         
         // 显示成功消息
         alert(`已暂停复习！该题目将在 ${removeDays} 天后再次出现在复习列表中`);

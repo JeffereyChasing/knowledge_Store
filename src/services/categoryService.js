@@ -3,12 +3,16 @@ import AV from 'leancloud-storage';
 import { offlineService } from './offlineService';
 
 // 初始化
+let isInitialized = false;
+
 export const initAV = () => {
   // 在离线模式下不初始化 LeanCloud
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：跳过 LeanCloud 初始化');
+    //('📦 离线模式：跳过 LeanCloud 初始化');
     return;
   }
+
+
   
   AV.init({
     appId: process.env.REACT_APP_LC_APP_ID,
@@ -83,7 +87,7 @@ const getOfflineCategories = () => {
     const cached = localStorage.getItem(OFFLINE_CATEGORIES_KEY);
     if (cached) {
       const data = JSON.parse(cached);
-      console.log('📦 从离线存储加载分类数据:', data.data.length, '个分类');
+      //('📦 从离线存储加载分类数据:', data.data.length, '个分类');
       return data;
     }
     
@@ -129,7 +133,7 @@ const saveCategoriesToOffline = (categories) => {
 const getCategoriesQuestionCounts = async (categories) => {
   // 离线模式下返回空计数
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：跳过题目数量统计');
+    //('📦 离线模式：跳过题目数量统计');
     const counts = {};
     categories.forEach(cat => {
       counts[cat.id] = 0;
@@ -242,7 +246,7 @@ const getCategoriesQuestionCounts = async (categories) => {
 export const getAllCategories = async () => {
   // 离线模式处理
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：从本地存储获取分类数据');
+    //('📦 离线模式：从本地存储获取分类数据');
     const offlineData = getOfflineCategories();
     return offlineData.data || [];
   }
@@ -293,7 +297,7 @@ export const getAllCategories = async () => {
     
     // 网络请求失败时，尝试使用离线数据
     if (error.message.includes('offline') || error.message.includes('network') || error.message.includes('CORS')) {
-      console.log('🌐 网络请求失败，尝试使用离线数据');
+      //('🌐 网络请求失败，尝试使用离线数据');
       const offlineData = getOfflineCategories();
       return offlineData.data || [];
     }
@@ -308,7 +312,7 @@ export const getAllCategories = async () => {
 export const getCategories = async (options = {}) => {
   // 离线模式处理
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：从本地存储获取分类数据');
+    //('📦 离线模式：从本地存储获取分类数据');
     return getOfflineCategories();
   }
 
@@ -389,7 +393,7 @@ export const getCategories = async (options = {}) => {
     
     // 网络请求失败时，尝试使用离线数据
     if (error.message.includes('offline') || error.message.includes('network') || error.message.includes('CORS')) {
-      console.log('🌐 网络请求失败，尝试使用离线数据');
+      //('🌐 网络请求失败，尝试使用离线数据');
       return getOfflineCategories();
     }
     
@@ -403,7 +407,7 @@ export const getCategories = async (options = {}) => {
 export const getCategoryById = async (categoryId) => {
   // 离线模式下返回空数据
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：无法获取单个分类详情');
+    //('📦 离线模式：无法获取单个分类详情');
     throw new Error('离线模式下无法获取分类详情');
   }
 
@@ -459,7 +463,7 @@ export const getCategoryById = async (categoryId) => {
 export const getCategoryWithQuestions = async (categoryId) => {
   // 离线模式下返回空数据
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：无法获取分类题目列表');
+    //('📦 离线模式：无法获取分类题目列表');
     throw new Error('离线模式下无法获取分类题目列表');
   }
 
@@ -716,7 +720,7 @@ export const getCategoriesStats = async () => {
 export const searchCategories = async (searchTerm, options = {}) => {
   // 离线模式下返回空结果
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：无法搜索分类');
+    //('📦 离线模式：无法搜索分类');
     return {
       data: [],
       pagination: {
@@ -767,7 +771,7 @@ export const searchCategories = async (searchTerm, options = {}) => {
 export const getQuestionsByCategory = async (categoryId, options = {}) => {
   // 离线模式下返回空结果
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：无法获取分类题目');
+    //('📦 离线模式：无法获取分类题目');
     return {
       data: []
     };
@@ -843,7 +847,7 @@ export const getQuestionsByCategory = async (categoryId, options = {}) => {
 export const getAllQuestionsPaginated = async (options = {}) => {
   // 离线模式下返回空结果
   if (offlineService.shouldUseOfflineData()) {
-    console.log('📦 离线模式：无法获取分页题目');
+    //('📦 离线模式：无法获取分页题目');
     return {
       data: [],
       total: 0,

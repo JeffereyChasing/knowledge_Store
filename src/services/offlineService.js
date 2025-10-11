@@ -10,13 +10,13 @@ export class OfflineService {
     if (typeof window === 'undefined') return;
 
     window.addEventListener('online', () => {
-      console.log('🌐 网络已连接');
+      //('🌐 网络已连接');
       this.isOnline = true;
       this.dispatchEvent('online');
     });
 
     window.addEventListener('offline', () => {
-      console.log('📶 网络已断开');
+      //('📶 网络已断开');
       this.isOnline = false;
       this.dispatchEvent('offline');
     });

@@ -73,7 +73,7 @@ export const UserService = {
       }
     }
     
-    console.log('Detected LeanCloud error code:', leanCloudCode);
+    //('Detected LeanCloud error code:', leanCloudCode);
     
     // 根据错误码提供用户友好的消息
     let userMessage;
@@ -170,7 +170,7 @@ export const UserService = {
       user.setEmail(email.trim().toLowerCase());
       
       const result = await user.signUp();
-      console.log('注册成功:', result);
+      //('注册成功:', result);
       
       return {
         success: true,
@@ -200,7 +200,7 @@ export const UserService = {
       }
 
       const result = await AV.User.logIn(username.trim(), password);
-      console.log('登录成功:', result);
+      //('登录成功:', result);
       
       return {
         success: true,
@@ -221,7 +221,7 @@ export const UserService = {
   logout: async () => {
     try {
       await AV.User.logOut();
-      console.log('退出成功');
+      //('退出成功');
       
       return {
         success: true,

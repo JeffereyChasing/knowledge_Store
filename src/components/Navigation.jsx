@@ -32,7 +32,7 @@ const Navigation = ({ onShowAuthModal }) => {
   // 添加头像更新事件监听
   useEffect(() => {
     const handleAvatarUpdate = async () => {
-      console.log('收到头像更新事件，重新加载用户数据');
+      //('收到头像更新事件，重新加载用户数据');
       const user = AV.User.current();
       if (user) {
         try {
@@ -101,7 +101,6 @@ const Navigation = ({ onShowAuthModal }) => {
             <img 
               src={avatarUrl} 
               alt="用户头像"
-              onLoad={() => console.log('✅ Navigation 头像加载成功')}
               onError={(e) => {
                 console.error('❌ Navigation 头像加载失败:', avatarUrl);
                 e.target.style.display = 'none';
@@ -255,7 +254,7 @@ const Navigation = ({ onShowAuthModal }) => {
                             className="dropdown-item"
                             onClick={() => {
                               setShowUserMenu(false);
-                              console.log('管理员功能');
+                              //('管理员功能');
                             }}
                           >
                             <span className="item-icon">🔧</span>

@@ -27,6 +27,8 @@ const debounce = (func, wait) => {
 };
 
 const CategoryDetailPage = () => {
+  // 容器状态管理
+  const [containerReady, setContainerReady] = useState(false);
   const { categoryId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -57,10 +59,43 @@ const CategoryDetailPage = () => {
     }
   }, [categoryId]);
 
+  // 优化的容器检测逻辑 - 使用MutationObserver
+  useEffect(() => {
+    const checkContainer = () => {
+      const container = containerRef.current;
+      if (container && container.nodeType === 1) {
+        setContainerReady(true);
+        return true;
+      }
+      return false;
+    };
+
+    // 立即检查一次
+    if (checkContainer()) return;
+
+    // 使用MutationObserver监听DOM变化
+    const observer = new MutationObserver((mutations) => {
+      if (checkContainer()) {
+        observer.disconnect();
+      }
+    });
+
+    // 监听根元素及其子元素变化
+    const rootElement = document.getElementById('root') || document.body;
+    observer.observe(rootElement, {
+      childList: true,
+      subtree: true,
+      attributes: false
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   // 滚动到指定题目的事件监听
   useEffect(() => {
     const handleScrollToQuestion = (event) => {
       const { questionId } = event.detail;
+      if (!questionId) return;
       
       const questionElement = document.querySelector(`[data-question-id="${questionId}"]`);
       if (questionElement) {
@@ -94,11 +129,9 @@ const CategoryDetailPage = () => {
       
       // 串行执行，避免并发请求
       await loadCategoryInfo();
-      await new Promise(resolve => setTimeout(resolve, 300)); // 添加延迟
       await loadAllCategories();
     } catch (error) {
       console.error('初始化失败:', error);
-      // 如果是429错误，显示友好提示
       if (error.code === 429 || error.message.includes('Too many requests')) {
         setSyncMessage('请求过于频繁，请稍后重试');
         setTimeout(() => setSyncMessage(''), 5000);
@@ -127,7 +160,6 @@ const CategoryDetailPage = () => {
       setAllCategories(userCategories);
     } catch (error) {
       console.error('加载所有分类失败:', error);
-      // 处理429错误
       if (error.code === 429 || error.message.includes('Too many requests')) {
         setSyncMessage('服务器繁忙，请稍后重试');
         setTimeout(() => setSyncMessage(''), 5000);
@@ -135,8 +167,7 @@ const CategoryDetailPage = () => {
     }
   };
 
-
-  // 修复无限滚动查询
+  // useInfiniteQuery 配置
   const {
     data,
     fetchNextPage,
@@ -148,153 +179,129 @@ const CategoryDetailPage = () => {
   } = useInfiniteQuery({
     queryKey: ['questions', categoryId, sortBy],
     queryFn: async ({ pageParam = 0 }) => {
-      console.log('正在获取第', pageParam + 1, '页数据');
       
-      const result = await getQuestionsByCategory(categoryId, {
-        page: pageParam,
-        pageSize: PAGE_SIZE,
-        sortBy,
-        sortOrder: 'desc'
-      });
-      
-      console.log('第', pageParam + 1, '页返回数据:', {
-        dataLength: result.data?.length,
-        hasMore: result.data?.length === PAGE_SIZE,
-        total: result.total
-      });
-      
-      return {
-        questions: result.data || [],
-        total: result.total,
-        nextPage: result.data?.length === PAGE_SIZE ? pageParam + 1 : undefined
-      };
+      try {
+        const result = await getQuestionsByCategory(categoryId, {
+          page: pageParam,
+          pageSize: PAGE_SIZE,
+          sortBy,
+          sortOrder: 'desc'
+        });
+        
+        
+        
+        return {
+          questions: result.data || [],
+          total: result.total,
+          nextPage: result.data?.length === PAGE_SIZE ? pageParam + 1 : undefined
+        };
+      } catch (error) {
+        if (error.code === 429 || error.status === 429) {
+          console.warn('API 频率限制，等待重试...');
+          throw new Error('请求过于频繁，请稍后重试');
+        }
+        throw error;
+      }
     },
-    getNextPageParam: (lastPage, allPages) => {
-      const nextPage = lastPage.nextPage;
-      
-      return nextPage;
-    },
+    getNextPageParam: (lastPage) => lastPage.nextPage,
     enabled: !!categoryId && !!currentUser,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 5, // 5分钟
     initialPageParam: 0,
+    retry: 2,
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 
-// 在扁平化所有页面的题目时添加去重
-const allQuestions = useMemo(() => {
-  const questions = data?.pages.flatMap(page => page.questions) || [];
-  
-  // 去重逻辑：基于 question.id
-  const uniqueQuestions = questions.reduce((acc, current) => {
-    const existing = acc.find(item => item.id === current.id);
-    if (!existing) {
-      acc.push(current);
-    } else {
-      console.warn('发现重复题目:', current.id, current.title);
-    }
-    return acc;
-  }, []);
-  
-  return uniqueQuestions;
-}, [data]);
+  // 扁平化所有页面的题目并去重
+  const allQuestions = useMemo(() => {
+    const questions = data?.pages.flatMap(page => page.questions) || [];
+    
+    // 基于id去重
+    const uniqueQuestions = Array.from(new Map(questions.map(item => [item.id, item])).values());
+    
+    return uniqueQuestions;
+  }, [data]);
 
-// 在搜索过滤后的题目中也确保去重
-const filteredQuestions = useMemo(() => {
-  if (!searchTerm) return allQuestions;
-  
-  const filtered = allQuestions.filter(question =>
-    question.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (question.detailedAnswer && question.detailedAnswer.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (question.oralAnswer && question.oralAnswer.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (question.code && question.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (question.tags && question.tags.some(tag => 
-      tag.toLowerCase().includes(searchTerm.toLowerCase())
-    ))
-  );
-  
-  // 再次去重确保安全
-  const uniqueFiltered = Array.from(new Map(filtered.map(item => [item.id, item])).values());
-  
-  return uniqueFiltered;
-}, [allQuestions, searchTerm]);
+  // 搜索过滤后的题目
+  const filteredQuestions = useMemo(() => {
+    if (!searchTerm) return allQuestions;
+    
+    const filtered = allQuestions.filter(question =>
+      question.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (question.detailedAnswer && question.detailedAnswer.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (question.oralAnswer && question.oralAnswer.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (question.code && question.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (question.tags && question.tags.some(tag => 
+        tag.toLowerCase().includes(searchTerm.toLowerCase())
+      ))
+    );
+    
+    return filtered;
+  }, [allQuestions, searchTerm]);
 
-// 在排序后的题目中也确保去重
-const sortedQuestions = useMemo(() => {
-  const sorted = [...filteredQuestions].sort((a, b) => {
-    switch (sortBy) {
-      case 'title':
-        return a.title.localeCompare(b.title);
-      case 'difficulty':
-        const difficultyOrder = { 'easy': 1, 'medium': 2, 'hard': 3 };
-        return difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty];
-      case 'appearanceLevel':
-        return (b.appearanceLevel || 50) - (a.appearanceLevel || 50);
-      case 'createdAt':
-        return new Date(b.createdAt) - new Date(a.createdAt);
-      case 'updatedAt':
-        return new Date(b.updatedAt) - new Date(a.createdAt);
-      default:
-        return (b.appearanceLevel || 50) - (a.appearanceLevel || 50);
-    }
-  });
-  
-  // 最终去重检查
-  const finalUnique = Array.from(new Map(sorted.map(item => [item.id, item])).values());
-  
-  return finalUnique;
-}, [filteredQuestions, sortBy]);
-  // React Virtual 虚拟化配置
-  const virtualizer = useVirtualizer({
-    count: sortedQuestions.length,
-    getScrollElement: () => containerRef.current,
-    estimateSize: () => viewMode === 'grid' ? 200 : 120,
-    overscan: 10,
-  });
+  // 排序后的题目
+  const sortedQuestions = useMemo(() => {
+    return [...filteredQuestions].sort((a, b) => {
+      switch (sortBy) {
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'difficulty':
+          const difficultyOrder = { 'easy': 1, 'medium': 2, 'hard': 3 };
+          return difficultyOrder[a.difficulty] - difficultyOrder[b.difficulty];
+        case 'appearanceLevel':
+          return (b.appearanceLevel || 50) - (a.appearanceLevel || 50);
+        case 'createdAt':
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        case 'updatedAt':
+          return new Date(b.updatedAt) - new Date(a.createdAt);
+        default:
+          return (b.appearanceLevel || 50) - (a.appearanceLevel || 50);
+      }
+    });
+  }, [filteredQuestions, sortBy]);
 
-  // 修复：改进的滚动加载逻辑
+  // 容器有效性检查辅助函数
+  const isContainerValid = () => {
+    return !!containerRef.current && containerRef.current.nodeType === 1;
+  };
+
+  // 滚动加载逻辑
   const handleScroll = useCallback(() => {
-    const container = containerRef.current;
-    if (!container || !hasNextPage || isFetchingNextPage) {
+    if (!isContainerValid() || !hasNextPage || isFetchingNextPage) {
       return;
     }
 
+    const container = containerRef.current;
     const { scrollTop, scrollHeight, clientHeight } = container;
     const scrollThreshold = 100;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     
-    console.log('滚动检查:', {
-      distanceFromBottom,
-      shouldLoad: distanceFromBottom < scrollThreshold,
-      hasNextPage,
-      isFetchingNextPage
-    });
-    
+ 
     if (distanceFromBottom < scrollThreshold) {
-      console.log('🎯 触发加载更多！当前页数:', data?.pages?.length || 0);
       fetchNextPage();
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage, data]);
 
-  // 修复：确保滚动监听正确绑定
+  // 滚动监听器绑定
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      console.log('❌ 未找到滚动容器');
+    if (!isContainerValid() || !containerReady) {
       return;
     }
 
-    console.log('✅ 绑定滚动监听器');
-    const debouncedScroll = debounce(handleScroll, 50);
+    const container = containerRef.current;
+    console.log('✅ 绑定滚动监听器到容器');
     
+    const debouncedScroll = debounce(handleScroll, 50);
     container.addEventListener('scroll', debouncedScroll);
     
     return () => {
+      console.log('🧹 清理滚动监听器');
       container.removeEventListener('scroll', debouncedScroll);
     };
-  }, [handleScroll]);
+  }, [containerReady, handleScroll]);
 
-  // 修复：改进的 Intersection Observer
+  // Intersection Observer 配置
   useEffect(() => {
-    if (!loadMoreTriggerRef.current || !hasNextPage || isFetchingNextPage) {
+    if (!loadMoreTriggerRef.current || !hasNextPage || isFetchingNextPage || !isContainerValid()) {
       return;
     }
 
@@ -314,13 +321,10 @@ const sortedQuestions = useMemo(() => {
     );
 
     observer.observe(loadMoreTriggerRef.current);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage, sortedQuestions.length]);
-
-  // 修复：手动测试加载更多的函数
+  // 手动加载更多
   const handleManualLoadMore = () => {
     console.log('🔄 手动触发加载更多');
     fetchNextPage();
@@ -524,9 +528,19 @@ const sortedQuestions = useMemo(() => {
       hasNextPage,
       isFetchingNextPage,
       totalQuestions: allQuestions.length,
-      pages: data?.pages?.length || 0
+      pages: data?.pages?.length || 0,
+      containerReady: isContainerValid()
     });
   }, [hasNextPage, isFetchingNextPage, allQuestions.length, data]);
+
+  // 虚拟滚动配置
+  const virtualizer = useVirtualizer({
+    count: sortedQuestions.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => viewMode === 'grid' ? 200 : 120,
+    overscan: 10,
+    enabled: containerReady && sortedQuestions.length > 0,
+  });
 
   // 用户未登录时的显示
   if (!currentUser) {
@@ -600,22 +614,17 @@ const sortedQuestions = useMemo(() => {
 
   return (
     <div className="category-detail-page">
-      {/* 现代化头部 */}
+      {/* 头部 */}
       <header className="modern-header">
         <div className="container">
           <div className="header-content">
-          <button 
-  onClick={handleBack} 
-  className="back-button"
->
-  <span 
-    className="back-icon"
-  >
-    ←
-  </span>
-  返回知识库
-
-</button>
+            <button 
+              onClick={handleBack} 
+              className="back-button"
+            >
+              <span className="back-icon">←</span>
+              返回知识库
+            </button>
             <div className="category-hero">
               <div className="category-badge">
                 <span className="category-emoji">📚</span>
@@ -801,6 +810,8 @@ const sortedQuestions = useMemo(() => {
               {/* 调试信息 */}
               <div className="debug-info" style={{ fontSize: '12px', color: '#666', padding: '8px', background: '#f5f5f5', borderRadius: '4px', marginBottom: '10px' }}>
                 分页状态: 已加载 {allQuestions.length} 题, 还有更多: {hasNextPage ? '是' : '否'}, 正在加载: {isFetchingNextPage ? '是' : '否'}
+                <br />
+                容器状态: {isContainerValid() ? '已就绪' : '未就绪'}
               </div>
 
               {/* 虚拟化题目列表 */}
@@ -815,91 +826,105 @@ const sortedQuestions = useMemo(() => {
                   borderRadius: '8px'
                 }}
               >
-                <div
-                  style={{
-                    height: `${virtualizer.getTotalSize()}px`,
-                    width: '100%',
-                    position: 'relative',
-                  }}
-                >
-                  {virtualizer.getVirtualItems().map((virtualItem) => {
-                    const question = sortedQuestions[virtualItem.index];
-                    
-                    return (
+                {!containerReady ? (
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center', 
+                    height: '100%',
+                    color: '#666'
+                  }}>
+                    正在准备内容区域...
+                  </div>
+                ) : (
+                  <>
+                    <div
+                      style={{
+                        height: `${virtualizer.getTotalSize()}px`,
+                        width: '100%',
+                        position: 'relative',
+                      }}
+                    >
+                      {virtualizer.getVirtualItems().map((virtualItem) => {
+                        const question = sortedQuestions[virtualItem.index];
+                        
+                        return (
+                          <div
+                            key={question.id}
+                            data-index={virtualItem.index}
+                            ref={virtualizer.measureElement}
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: "100%",
+                              transform: `translateY(${virtualItem.start}px)`,
+                            }}
+                          >
+                            <QuestionAccordion
+                              question={question}
+                              index={virtualItem.index}
+                              isExpanded={expandedQuestions.has(question.id)}
+                              onToggle={() => toggleQuestion(question.id)}
+                              onDelete={handleDeleteQuestion}
+                              onEdit={handleEditQuestion}
+                              onUpdateField={handleUpdateQuestionField}
+                              viewMode={viewMode}
+                              isDragging={draggingQuestion === question.id}
+                              isDragOver={dragOverQuestion === question.id}
+                              onDragStart={(e) => handleDragStart(e, question.id)}
+                              onDragOver={(e) => handleDragOver(e, question.id)}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDrop(e, question.id)}
+                              onDragEnd={handleDragEnd}
+                              canDrag={expandedQuestions.size === 0}
+                              showQuestionForm={showQuestionForm}
+                              setShowQuestionForm={setShowQuestionForm}
+                              editingQuestion={editingQuestion}
+                              setEditingQuestion={setEditingQuestion}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* 加载更多触发元素 */}
+                    {hasNextPage && (
                       <div
-                        key={question.id}
-                        data-index={virtualItem.index}
-                        ref={virtualizer.measureElement}
+                        ref={loadMoreTriggerRef}
                         style={{
-                          position: "absolute",
-                          top: 0,
-                          left: 0,
-                          width: "100%",
-                          transform: `translateY(${virtualItem.start}px)`,
+                          height: '60px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                          background: 'transparent'
                         }}
                       >
-                        <QuestionAccordion
-                          question={question}
-                          index={virtualItem.index}
-                          isExpanded={expandedQuestions.has(question.id)}
-                          onToggle={() => toggleQuestion(question.id)}
-                          onDelete={handleDeleteQuestion}
-                          onEdit={handleEditQuestion}
-                          onUpdateField={handleUpdateQuestionField}
-                          viewMode={viewMode}
-                          isDragging={draggingQuestion === question.id}
-                          isDragOver={dragOverQuestion === question.id}
-                          onDragStart={(e) => handleDragStart(e, question.id)}
-                          onDragOver={(e) => handleDragOver(e, question.id)}
-                          onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, question.id)}
-                          onDragEnd={handleDragEnd}
-                          canDrag={expandedQuestions.size === 0}
-                          showQuestionForm={showQuestionForm}
-                          setShowQuestionForm={setShowQuestionForm}
-                          editingQuestion={editingQuestion}
-                          setEditingQuestion={setEditingQuestion}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* 加载更多触发元素 */}
-                {hasNextPage && (
-                  <div
-                    ref={loadMoreTriggerRef}
-                    style={{
-                      height: '60px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      position: 'relative',
-                      background: 'transparent'
-                    }}
-                  >
-                    {isFetchingNextPage ? (
-                      <div className="loading-more">
-                        <div className="modern-spinner small"></div>
-                        <span>加载更多题目...</span>
-                      </div>
-                    ) : (
-                      <div className="load-more-trigger" style={{ padding: '10px', color: '#666' }}>
-                        <span>↓ 继续滚动加载更多</span>
+                        {isFetchingNextPage ? (
+                          <div className="loading-more">
+                            <div className="modern-spinner small"></div>
+                            <span>加载更多题目...</span>
+                          </div>
+                        ) : (
+                          <div className="load-more-trigger" style={{ padding: '10px', color: '#666' }}>
+                            <span>↓ 继续滚动加载更多</span>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
 
-                {!hasNextPage && allQuestions.length > 0 && (
-                  <div style={{ 
-                    textAlign: 'center', 
-                    padding: '20px', 
-                    color: '#999',
-                    fontStyle: 'italic'
-                  }}>
-                    已加载全部 {allQuestions.length} 个题目
-                  </div>
+                    {!hasNextPage && allQuestions.length > 0 && (
+                      <div style={{ 
+                        textAlign: 'center', 
+                        padding: '20px', 
+                        color: '#999',
+                        fontStyle: 'italic'
+                      }}>
+                        已加载全部 {allQuestions.length} 个题目
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </>
@@ -907,7 +932,7 @@ const sortedQuestions = useMemo(() => {
         </div>
       </section>
 
-      {/* 在虚拟化容器之外渲染编辑表单 */}
+      {/* 编辑表单 */}
       {showQuestionForm && (
         <div 
           className="form-modal-overlay"
@@ -945,7 +970,7 @@ const sortedQuestions = useMemo(() => {
   );
 };
 
-// QuestionAccordion 组件保持不变
+// QuestionAccordion 组件
 const QuestionAccordion = ({ 
   question, 
   index, 
@@ -1059,7 +1084,7 @@ const QuestionAccordion = ({
     return answerText.substring(0, 150) + (answerText.length > 150 ? '...' : '');
   };
 
-  // 如果已经展开，显示扩展视图
+  // 展开状态视图
   if (isExpanded) {
     return (
       <div className="expanded-question-view" data-question-id={question.id}>
@@ -1099,9 +1124,8 @@ const QuestionAccordion = ({
     );
   }
 
- 
-  // 折叠状态下的显示
- {} if (viewMode === 'grid') {
+  // 网格视图
+  if (viewMode === 'grid') {
     return (
       <div 
         className={`question-grid-card ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
@@ -1119,7 +1143,7 @@ const QuestionAccordion = ({
           border: `1px solid ${getDifficultyBorderColor(question.difficulty)}`
         }}
       >
-        {/* 掌握程度蝴蝶结标识 */}
+        {/* 掌握程度标识 */}
         <div 
           className="proficiency-ribbon"
           style={{ backgroundColor: getProficiencyColor(question.proficiency) }}
@@ -1167,7 +1191,7 @@ const QuestionAccordion = ({
     );
   }
 
-  // 列表视图下的折叠状态
+  // 列表视图
   return (
     <div 
       className={`modern-accordion ${isExpanded ? 'expanded' : ''} ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
@@ -1184,7 +1208,7 @@ const QuestionAccordion = ({
         border: `1px solid ${getDifficultyBorderColor(question.difficulty)}`
       }}
     >
-      {/* 掌握程度蝴蝶结标识 */}
+      {/* 掌握程度标识 */}
       <div 
         className="proficiency-ribbon"
         style={{ backgroundColor: getProficiencyColor(question.proficiency) }}

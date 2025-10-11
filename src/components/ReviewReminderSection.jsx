@@ -100,25 +100,25 @@ const ReviewReminderSection = ({
     setUpdatingQuestions(prev => new Set(prev).add(questionId));
     
     try {
-      console.log('开始调用 onUpdateQuestionTime...');
+      //('开始调用 onUpdateQuestionTime...');
       
       // 1. 首先更新题目的复习时间
       await onUpdateQuestionTime(questionId);
       
-      console.log('onUpdateQuestionTime 调用成功');
+      //('onUpdateQuestionTime 调用成功');
       
       // 2. 从复习列表中移除该题目
       setReviewQuestions(prev => {
         const newList = prev.filter(q => q.id !== questionId);
-        console.log('从复习列表移除后:', newList.length);
+        //('从复习列表移除后:', newList.length);
         return newList;
       });
       
-      console.log('准备跳转到题目...');
+      //('准备跳转到题目...');
       
       // 3. 找到题目信息并跳转到分类页面
       if (question && question.category) {
-        console.log('跳转到分类:', question.category.id);
+        //('跳转到分类:', question.category.id);
         
         // 调用父组件传递的跳转函数
         if (onQuestionClick) {

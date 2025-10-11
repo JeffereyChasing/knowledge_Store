@@ -80,7 +80,7 @@ const ReviewPage = () => {
   // 更新题目复习时间
   const handleUpdateQuestionTime = async (questionId) => {
     try {
-      console.log('更新题目复习时间:', questionId);
+      //('更新题目复习时间:', questionId);
       
       const currentTime = new Date().toISOString();
       
@@ -94,7 +94,7 @@ const ReviewPage = () => {
           : q
       ));
       
-      console.log(`题目 ${questionId} 复习时间已更新`);
+      //(`题目 ${questionId} 复习时间已更新`);
       return true;
     } catch (error) {
       console.error('更新题目时间失败:', error);

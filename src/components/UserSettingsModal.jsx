@@ -218,7 +218,7 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
         const timestamp = new Date().getTime();
         const avatarUrlWithCacheBust = `${result.avatarUrl}?t=${timestamp}`;
         
-        console.log('设置带时间戳的头像URL:', avatarUrlWithCacheBust);
+        //('设置带时间戳的头像URL:', avatarUrlWithCacheBust);
         
         // 更新本地预览
         setAvatarPreview(avatarUrlWithCacheBust);
@@ -231,7 +231,7 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
           try {
             const updatedUser = await AV.User.current().fetch();
             setCurrentUser(updatedUser);
-            console.log('用户数据已更新');
+            //('用户数据已更新');
             
             // 强制重新渲染 Navigation 组件
             window.dispatchEvent(new CustomEvent('userAvatarUpdated'));
@@ -258,10 +258,7 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
 
     setSaving(true);
     try {
-      console.log('开始更新个人信息...', {
-        nickname: profileForm.nickname,
-        bio: profileForm.bio
-      });
+      
 
       // 使用云函数更新个人信息
       const result = await AV.Cloud.run('updateUserProfile', {
@@ -277,7 +274,7 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
           try {
             const updatedUser = await AV.User.current().fetch();
             setCurrentUser(updatedUser);
-            console.log('用户数据已更新');
+            //('用户数据已更新');
           } catch (fetchError) {
             console.error('获取更新后的用户数据失败:', fetchError);
           }
@@ -343,7 +340,7 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
 
     setSaving(true);
     try {
-      console.log('开始更新偏好设置...', preferencesForm);
+      //('开始更新偏好设置...', preferencesForm);
 
       // 使用云函数更新偏好设置
       const result = await AV.Cloud.run('updateUserPreferences', {
@@ -579,7 +576,6 @@ const UserSettingsModal = ({ isOpen, onClose }) => {
                             objectFit: 'cover',
                             objectPosition: 'center'
                           }}
-                          onLoad={() => console.log('✅ 头像预览加载成功')}
                           onError={(e) => {
                             console.error('❌ 头像预览加载失败:', avatarPreview);
                             e.target.style.display = 'none';
